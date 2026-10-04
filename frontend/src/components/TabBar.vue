@@ -48,9 +48,3 @@ const tabs = computed(() => [
 		</ul>
 	</nav>
 </template>
-
-<style scoped>
-:global(.keyboard-open) .tabbar {
-	display: none;
-}
-</style>

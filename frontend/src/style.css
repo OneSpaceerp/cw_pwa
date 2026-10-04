@@ -222,6 +222,13 @@
 	}
 }
 
+/* The tab bar is only in the way while typing. This rule lives here, not in the
+   component's scoped styles: Vue compiles `:global(.keyboard-open) .tabbar` down to
+   `.keyboard-open` alone, which hid the whole page whenever the keyboard opened. */
+.keyboard-open .tabbar {
+	display: none;
+}
+
 /* ----------------------------------------------------------------- motion */
 .page-enter-active,
 .page-leave-active {
