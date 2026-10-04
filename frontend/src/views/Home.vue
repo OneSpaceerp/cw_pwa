@@ -1,344 +1,192 @@
-<template>
-	<div class="px-4 py-3 space-y-4 max-w-xl mx-auto pb-6">
-		<!-- 1. Engineer Shift Status & Greeting Banner -->
-		<div
-			class="p-4 rounded-2xl shadow-md relative overflow-hidden text-white bg-gradient-to-r from-sky-800 via-sky-700 to-cyan-700"
-			style="background: linear-gradient(135deg, #075985 0%, #0284c7 50%, #0891b2 100%);"
-		>
-			<div class="flex items-center justify-between relative z-10">
-				<div>
-					<p class="text-[11px] font-bold text-sky-100 uppercase tracking-wider">{{ currentDate }}</p>
-					<h2 class="text-lg font-extrabold text-white mt-0.5 drop-shadow-xs">Welcome, {{ session.userFullName }}</h2>
-					<div class="flex items-center space-x-2 mt-2">
-						<span
-							class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold shadow-2xs"
-							:class="isOnDuty ? 'bg-emerald-500/30 text-emerald-100 border border-emerald-300/50' : 'bg-slate-500/30 text-slate-200 border border-slate-300/40'"
-						>
-							<span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="isOnDuty ? 'bg-emerald-300 animate-pulse' : 'bg-slate-300'"></span>
-							{{ isOnDuty ? "Shift Active (On Duty)" : "Off Duty" }}
-						</span>
-						<button
-							@click="toggleDuty"
-							class="text-[11px] text-sky-100 underline hover:text-white font-medium drop-shadow-2xs"
-						>
-							Toggle
-						</button>
-					</div>
-				</div>
-
-				<div class="text-right">
-					<span class="text-[11px] text-sky-100 block font-medium">Jeddah District</span>
-					<span class="text-xs font-bold text-white block mt-0.5 drop-shadow-xs">Water Field Service</span>
-				</div>
-			</div>
-
-			<!-- Background decorative wave shape -->
-			<div class="absolute -bottom-8 -right-6 w-32 h-32 bg-white/15 rounded-full blur-xl pointer-events-none"></div>
-		</div>
-
-		<!-- Device Permissions Prompt Banner (if any permission is ungranted) -->
-		<div
-			v-if="!permissionsManager.allGranted && !isPermissionsDismissed"
-			class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 shadow-2xs flex items-center justify-between gap-3 text-xs"
-		>
-			<div class="flex items-center space-x-2.5 overflow-hidden">
-				<div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-					<FeatherIcon name="shield" class="w-4 h-4 stroke-[2.5]" />
-				</div>
-				<div class="truncate">
-					<h4 class="font-bold text-amber-950 truncate">Device Permissions Needed</h4>
-					<p class="text-[11px] text-amber-800 truncate">Enable GPS, Camera, and Notifications for field ops</p>
-				</div>
-			</div>
-			<div class="flex items-center gap-1.5 shrink-0">
-				<button
-					@click="$router.push('/profile')"
-					class="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold active:scale-95 transition-all shadow-2xs"
-				>
-					Setup
-				</button>
-				<button
-					@click="isPermissionsDismissed = true"
-					class="p-1 text-amber-600 hover:text-amber-800"
-				>
-					<FeatherIcon name="x" class="w-3.5 h-3.5" />
-				</button>
-			</div>
-		</div>
-
-		<!-- 2. Operational KPI Cards Grid -->
-		<div>
-			<div class="flex items-center justify-between mb-2">
-				<h3 class="text-xs font-bold text-ink-gray-5 uppercase tracking-wider">Field Operations Summary</h3>
-				<span class="text-[11px] text-ink-blue-3 font-semibold cursor-pointer" @click="$router.push('/visits')">View all</span>
-			</div>
-
-			<div class="grid grid-cols-2 gap-3">
-				<!-- Scheduled -->
-				<div
-					@click="$router.push('/visits?status=Scheduled')"
-					class="p-3.5 rounded-2xl bg-surface-blue-1 border-l-4 border-l-sky-500 border border-outline-blue-1 shadow-xs active:scale-98 transition-transform cursor-pointer"
-				>
-					<div class="flex items-center justify-between">
-						<span class="text-[11px] font-bold text-sky-800 tracking-wider">SCHEDULED</span>
-						<FeatherIcon name="calendar" class="w-4 h-4 text-sky-600" />
-					</div>
-					<div class="text-2xl font-extrabold text-sky-900 mt-1.5">{{ counts.scheduled }}</div>
-					<span class="text-[10px] text-ink-gray-5">Awaiting dispatch</span>
-				</div>
-
-				<!-- In Progress -->
-				<div
-					@click="$router.push('/visits?status=In Progress')"
-					class="p-3.5 rounded-2xl bg-amber-50 border-l-4 border-l-amber-500 border border-amber-200 shadow-xs active:scale-98 transition-transform cursor-pointer"
-				>
-					<div class="flex items-center justify-between">
-						<span class="text-[11px] font-bold text-amber-800 tracking-wider">IN PROGRESS</span>
-						<FeatherIcon name="activity" class="w-4 h-4 text-amber-600" />
-					</div>
-					<div class="text-2xl font-extrabold text-amber-900 mt-1.5">{{ counts.inProgress }}</div>
-					<span class="text-[10px] text-ink-gray-5">Currently on site</span>
-				</div>
-
-				<!-- Pending Review -->
-				<div
-					@click="$router.push('/visits?status=Pending Review')"
-					class="p-3.5 rounded-2xl bg-purple-50 border-l-4 border-l-purple-500 border border-purple-200 shadow-xs active:scale-98 transition-transform cursor-pointer"
-				>
-					<div class="flex items-center justify-between">
-						<span class="text-[11px] font-bold text-purple-800 tracking-wider">UNDER REVIEW</span>
-						<FeatherIcon name="clock" class="w-4 h-4 text-purple-600" />
-					</div>
-					<div class="text-2xl font-extrabold text-purple-900 mt-1.5">{{ counts.pending }}</div>
-					<span class="text-[10px] text-ink-gray-5">Reports submitted</span>
-				</div>
-
-				<!-- Completed -->
-				<div
-					@click="$router.push('/visits?status=Approved')"
-					class="p-3.5 rounded-2xl bg-emerald-50 border-l-4 border-l-emerald-500 border border-emerald-200 shadow-xs active:scale-98 transition-transform cursor-pointer"
-				>
-					<div class="flex items-center justify-between">
-						<span class="text-[11px] font-bold text-emerald-800 tracking-wider">COMPLETED</span>
-						<FeatherIcon name="check-circle" class="w-4 h-4 text-emerald-600" />
-					</div>
-					<div class="text-2xl font-extrabold text-emerald-900 mt-1.5">{{ counts.completed }}</div>
-					<span class="text-[10px] text-ink-gray-5">Approved visits</span>
-				</div>
-			</div>
-		</div>
-
-		<!-- 3. Quick Action Chips (Frappe HR Style) -->
-		<div>
-			<h3 class="text-xs font-bold text-ink-gray-5 uppercase tracking-wider mb-2">Quick Actions</h3>
-			<div class="grid grid-cols-4 gap-2">
-				<button
-					@click="showNewModal = true"
-					class="flex flex-col items-center justify-center p-2.5 bg-surface-white rounded-xl border border-outline-gray-1 shadow-2xs hover:border-sky-300 active:scale-95 transition-all text-center"
-				>
-					<div class="w-9 h-9 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center mb-1.5">
-						<FeatherIcon name="plus" class="w-4 h-4 stroke-[2.5]" />
-					</div>
-					<span class="text-[11px] font-semibold text-ink-gray-8">New Visit</span>
-				</button>
-
-				<button
-					@click="nextVisit ? $router.push(`/visits/${nextVisit.name}`) : $router.push('/visits')"
-					class="flex flex-col items-center justify-center p-2.5 bg-surface-white rounded-xl border border-outline-gray-1 shadow-2xs hover:border-sky-300 active:scale-95 transition-all text-center"
-				>
-					<div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-1.5">
-						<FeatherIcon name="map-pin" class="w-4 h-4 stroke-[2.5]" />
-					</div>
-					<span class="text-[11px] font-semibold text-ink-gray-8">Check-In</span>
-				</button>
-
-				<button
-					@click="$router.push('/sync-queue')"
-					class="flex flex-col items-center justify-center p-2.5 bg-surface-white rounded-xl border border-outline-gray-1 shadow-2xs hover:border-sky-300 active:scale-95 transition-all text-center relative"
-				>
-					<div class="w-9 h-9 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-1.5">
-						<FeatherIcon name="refresh-cw" class="w-4 h-4 stroke-[2.5]" />
-					</div>
-					<span class="text-[11px] font-semibold text-ink-gray-8">Sync Queue</span>
-					<span
-						v-if="syncStore.pendingCount > 0"
-						class="absolute top-1.5 right-2 w-2 h-2 bg-amber-500 rounded-full"
-					></span>
-				</button>
-
-				<button
-					@click="openEmergencyCallout"
-					class="flex flex-col items-center justify-center p-2.5 bg-surface-white rounded-xl border border-outline-gray-1 shadow-2xs hover:border-red-300 active:scale-95 transition-all text-center"
-				>
-					<div class="w-9 h-9 rounded-full bg-red-50 text-red-600 flex items-center justify-center mb-1.5">
-						<FeatherIcon name="alert-triangle" class="w-4 h-4 stroke-[2.5]" />
-					</div>
-					<span class="text-[11px] font-semibold text-ink-gray-8">Emergency</span>
-				</button>
-			</div>
-		</div>
-
-		<!-- 4. Active / Next Assignment Spotlight (Hero Card) -->
-		<div>
-			<div class="flex items-center justify-between mb-2">
-				<h3 class="text-xs font-bold text-ink-gray-5 uppercase tracking-wider">Current Assignment</h3>
-				<span v-if="nextVisit" class="text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full">
-					{{ nextVisit.name }}
-				</span>
-			</div>
-
-			<div v-if="nextVisit" class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs">
-				<div class="flex justify-between items-start mb-2">
-					<div>
-						<h4 class="font-bold text-ink-gray-9 text-sm leading-snug">{{ nextVisit.customer_name || nextVisit.customer }}</h4>
-						<p class="text-xs text-ink-gray-5 mt-0.5 flex items-center gap-1">
-							<FeatherIcon name="map-pin" class="w-3.5 h-3.5 text-sky-600" />
-							<span>{{ nextVisit.service_location }}</span>
-						</p>
-					</div>
-					<StatusBadge :status="nextVisit.visit_status" />
-				</div>
-
-				<div class="flex items-center justify-between text-xs text-ink-gray-6 py-2 border-y border-outline-gray-1 my-3">
-					<div class="flex items-center gap-1.5">
-						<FeatherIcon name="calendar" class="w-3.5 h-3.5 text-ink-gray-4" />
-						<span><strong>Date:</strong> {{ nextVisit.planned_date }}</span>
-					</div>
-					<div class="flex items-center gap-1.5">
-						<FeatherIcon name="tag" class="w-3.5 h-3.5 text-ink-gray-4" />
-						<span><strong>Type:</strong> {{ nextVisit.visit_type || "Routine" }}</span>
-					</div>
-				</div>
-
-				<Button
-					variant="solid"
-					theme="blue"
-					size="md"
-					class="w-full justify-center !rounded-xl !py-2.5 font-bold shadow-xs flex items-center gap-2"
-					@click="$router.push(`/visits/${nextVisit.name}`)"
-				>
-					<template #prefix>
-						<FeatherIcon name="arrow-right-circle" class="w-4 h-4" />
-					</template>
-					{{ nextVisit.visit_status === "In Progress" ? "Continue Inspection" : "Start Visit & Check-In" }}
-				</Button>
-			</div>
-
-			<div v-else class="text-center py-8 bg-surface-white rounded-2xl border border-dashed border-outline-gray-2 p-4">
-				<FeatherIcon name="check-circle" class="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-				<h4 class="text-xs font-bold text-ink-gray-9">No Pending Visits</h4>
-				<p class="text-[11px] text-ink-gray-5 mt-0.5">All scheduled visits for today are completed.</p>
-				<Button
-					variant="subtle"
-					theme="blue"
-					size="sm"
-					class="!rounded-xl mt-3 font-semibold"
-					@click="showNewModal = true"
-				>
-					Schedule Next Visit
-				</Button>
-			</div>
-		</div>
-
-		<!-- 5. Today's Visits Schedule -->
-		<div class="space-y-2">
-			<div class="flex items-center justify-between">
-				<h3 class="text-xs font-bold text-ink-gray-5 uppercase tracking-wider">Today's Schedule</h3>
-				<span class="text-[11px] text-ink-gray-5">{{ todayVisits.length }} visits planned</span>
-			</div>
-
-			<div class="space-y-2.5">
-				<div
-					v-for="v in todayVisits"
-					:key="v.name"
-					@click="$router.push(`/visits/${v.name}`)"
-					class="p-3 bg-surface-white rounded-xl border border-outline-gray-1 shadow-2xs flex items-center justify-between active:scale-98 transition-transform cursor-pointer"
-				>
-					<div class="flex items-center space-x-3">
-						<div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
-							<FeatherIcon name="clipboard" class="w-4 h-4" />
-						</div>
-						<div>
-							<h5 class="text-xs font-bold text-ink-gray-9 truncate max-w-[200px]">{{ v.customer_name || v.customer }}</h5>
-							<p class="text-[10px] text-ink-gray-5">{{ v.service_location }} &bull; {{ v.visit_type || "Routine" }}</p>
-						</div>
-					</div>
-
-					<div class="flex items-center space-x-2">
-						<StatusBadge :status="v.visit_status" />
-						<FeatherIcon name="chevron-right" class="w-4 h-4 text-ink-gray-4" />
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- New Visit Modal -->
-		<NewVisitModal
-			v-model="showNewModal"
-			@created="handleCreated"
-		/>
-	</div>
-</template>
-
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
-import { Button, FeatherIcon } from "frappe-ui";
-import StatusBadge from "@/components/StatusBadge.vue";
-import NewVisitModal from "@/components/NewVisitModal.vue";
-import { session } from "@/data/session";
-import { visitsData } from "@/data/visits";
-import { syncStore } from "@/stores/sync";
-import { permissionsManager } from "@/utils/permissions";
+import { CalendarCheck2, ChevronRight, MapPin, Play, Plus, RotateCw } from "@lucide/vue";
+import { computed, onMounted } from "vue";
 
-const router = useRouter();
-const showNewModal = ref(false);
-const isOnDuty = ref(true);
-const isPermissionsDismissed = ref(false);
+import EmptyState from "@/components/EmptyState.vue";
+import Pill from "@/components/Pill.vue";
+import SyncChip from "@/components/SyncChip.vue";
+import VisitCard from "@/components/VisitCard.vue";
+import { ago, dayLabel, STATUS, timeLabel, todayISO } from "@/lib/format";
+import { pwa } from "@/lib/pwa";
+import { loadAlerts } from "@/stores/alerts";
+import { session, settings } from "@/stores/session";
+import { syncNow } from "@/stores/sync";
+import { listItems, visits } from "@/stores/visits";
 
-onMounted(() => {
-	permissionsManager.checkAll();
+const OPEN = ["Planned", "In Progress", "Correction Required"];
+
+const items = computed(() => listItems());
+const today = todayISO();
+
+const firstName = computed(() => (session.boot?.full_name || "").split(" ")[0]);
+const greeting = computed(() => {
+	const hour = new Date().getHours();
+	return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 });
 
-const currentDate = computed(() => {
-	const now = new Date();
-	return now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-});
-
-const counts = computed(() => {
-	const all = visitsData.visits || [];
-	return {
-		scheduled: all.filter((v) => v.visit_status === "Scheduled").length,
-		inProgress: all.filter((v) => v.visit_status === "In Progress").length,
-		pending: all.filter((v) => v.visit_status === "Pending Review").length,
-		completed: all.filter((v) => v.visit_status === "Approved").length,
-	};
-});
-
-const nextVisit = computed(() => {
-	const all = visitsData.visits || [];
+// What the engineer should do next: a visit already under way, then one sent back, then today's next.
+const nextUp = computed(() => {
+	const all = items.value;
 	return (
-		all.find((v) => v.visit_status === "In Progress") ||
-		all.find((v) => v.visit_status === "Scheduled") ||
-		all[0]
+		all.find((visit) => visit.visit_status === "In Progress") ||
+		all.find((visit) => visit.visit_status === "Correction Required") ||
+		all
+			.filter((visit) => visit.visit_status === "Planned" && visit.planned_date <= today)
+			.sort(byPlanned)[0] ||
+		null
 	);
 });
 
-const todayVisits = computed(() => {
-	return visitsData.visits || [];
+const todays = computed(() =>
+	items.value
+		.filter((visit) => visit.planned_date === today && visit.name !== nextUp.value?.name)
+		.sort(byPlanned)
+);
+const upcoming = computed(() =>
+	items.value
+		.filter((visit) => visit.planned_date > today && visit.visit_status === "Planned")
+		.sort(byPlanned)
+		.slice(0, 3)
+);
+
+const counts = computed(() => ({
+	today: items.value.filter((visit) => visit.planned_date === today).length,
+	open: items.value.filter((visit) => OPEN.includes(visit.visit_status)).length,
+	review: items.value.filter((visit) => visit.visit_status === "Pending Review").length,
+}));
+
+function byPlanned(a, b) {
+	return `${a.planned_date} ${a.planned_start_time || "99"}`.localeCompare(`${b.planned_date} ${b.planned_start_time || "99"}`);
+}
+
+const nextAction = computed(() => {
+	const status = nextUp.value?.visit_status;
+	if (status === "In Progress") return "Continue visit";
+	if (status === "Correction Required") return "Fix and resubmit";
+	return "Open visit";
 });
 
-function toggleDuty() {
-	isOnDuty.value = !isOnDuty.value;
-}
-
-function openEmergencyCallout() {
-	showNewModal.value = true;
-}
-
-function handleCreated(newVisit) {
-	if (confirm(`Visit ${newVisit.name} scheduled! Open it now?`)) {
-		router.push(`/visits/${newVisit.name}`);
-	}
-}
+onMounted(() => {
+	syncNow();
+	loadAlerts();
+});
 </script>
+
+<template>
+	<div class="scroll-area h-full">
+		<header
+			class="bg-hero px-5 pb-16 text-on-hero"
+			:class="session.online && !pwa.updateReady ? 'pt-[calc(theme(spacing.safe-top)+20px)]' : 'pt-5'"
+		>
+			<div class="mx-auto flex max-w-xl items-start justify-between gap-3">
+				<div class="min-w-0">
+					<p class="text-sm font-semibold opacity-90">{{ greeting }}</p>
+					<h1 class="truncate text-2xl font-extrabold">{{ firstName || "Engineer" }}</h1>
+				</div>
+				<div class="flex items-center gap-2">
+					<SyncChip />
+					<button
+						type="button"
+						class="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 active:bg-white/25"
+						aria-label="Refresh"
+						@click="syncNow"
+					>
+						<RotateCw :size="20" :class="visits.loadingList ? 'spin' : ''" aria-hidden="true" />
+					</button>
+				</div>
+			</div>
+		</header>
+
+		<div class="mx-auto -mt-12 max-w-xl space-y-6 px-4 pb-28">
+			<!-- Next up -->
+			<section v-if="nextUp" aria-label="Next visit">
+				<RouterLink
+					:to="{ name: 'visit', params: { name: nextUp.name } }"
+					class="card block p-5 transition-transform active:scale-[0.99]"
+				>
+					<div class="flex items-center justify-between gap-2">
+						<span class="text-xs font-bold uppercase tracking-wider text-ink-3">Next up</span>
+						<Pill :tone="(STATUS[nextUp.visit_status] || {}).tone" dot>
+							{{ (STATUS[nextUp.visit_status] || {}).label || nextUp.visit_status }}
+						</Pill>
+					</div>
+					<h2 class="mt-2 text-xl font-extrabold text-ink">{{ nextUp.customer_name || nextUp.customer }}</h2>
+					<p class="font-medium text-ink-2">{{ nextUp.visit_type }}</p>
+					<p v-if="nextUp.site?.location_name" class="mt-2 flex items-center gap-1.5 text-sm text-ink-2">
+						<MapPin :size="16" class="shrink-0 text-ink-3" aria-hidden="true" />
+						<span class="truncate">{{ nextUp.site.location_name }}</span>
+					</p>
+					<div class="mt-4 flex items-center justify-between gap-3">
+						<span class="text-sm font-semibold text-ink-2">
+							{{ dayLabel(nextUp.planned_date) }}<template v-if="nextUp.planned_start_time"> · {{ timeLabel(nextUp.planned_start_time) }}</template>
+						</span>
+						<span class="btn-primary min-h-[44px] px-4 text-sm">
+							<Play :size="16" aria-hidden="true" />
+							{{ nextAction }}
+						</span>
+					</div>
+				</RouterLink>
+			</section>
+
+			<section v-else class="card" aria-label="Next visit">
+				<EmptyState
+					:icon="CalendarCheck2"
+					title="Nothing waiting for you"
+					:text="visits.listLoadedAt ? 'New visits appear here as soon as they are assigned.' : 'Connect to the internet to load your visits.'"
+				/>
+			</section>
+
+			<!-- Counts -->
+			<section class="grid grid-cols-3 gap-3" aria-label="Summary">
+				<RouterLink :to="{ name: 'visits', query: { filter: 'today' } }" class="card p-3.5 text-center active:scale-[0.98]">
+					<p class="numeric text-2xl font-extrabold text-ink">{{ counts.today }}</p>
+					<p class="text-xs font-semibold text-ink-2">Today</p>
+				</RouterLink>
+				<RouterLink :to="{ name: 'visits', query: { filter: 'open' } }" class="card p-3.5 text-center active:scale-[0.98]">
+					<p class="numeric text-2xl font-extrabold text-ink">{{ counts.open }}</p>
+					<p class="text-xs font-semibold text-ink-2">To do</p>
+				</RouterLink>
+				<RouterLink :to="{ name: 'visits', query: { filter: 'done' } }" class="card p-3.5 text-center active:scale-[0.98]">
+					<p class="numeric text-2xl font-extrabold text-ink">{{ counts.review }}</p>
+					<p class="text-xs font-semibold text-ink-2">In review</p>
+				</RouterLink>
+			</section>
+
+			<section v-if="todays.length" aria-labelledby="home-today">
+				<h2 id="home-today" class="section-title">Also today</h2>
+				<div class="space-y-3">
+					<VisitCard v-for="visit in todays" :key="visit.name" :visit="visit" :show-date="false" />
+				</div>
+			</section>
+
+			<section v-if="upcoming.length" aria-labelledby="home-upcoming">
+				<div class="mb-2 flex items-center justify-between px-1">
+					<h2 id="home-upcoming" class="section-title mb-0 px-0">Coming up</h2>
+					<RouterLink :to="{ name: 'visits', query: { filter: 'open' } }" class="inline-flex min-h-[44px] items-center text-sm font-bold text-brand-strong">
+						All visits
+						<ChevronRight :size="16" aria-hidden="true" />
+					</RouterLink>
+				</div>
+				<div class="space-y-3">
+					<VisitCard v-for="visit in upcoming" :key="visit.name" :visit="visit" />
+				</div>
+			</section>
+
+			<p v-if="visits.listLoadedAt" class="text-center text-xs text-ink-3">
+				Visits updated {{ ago(visits.listLoadedAt) }}
+			</p>
+			<p v-if="visits.listError" class="rounded-control px-4 py-3 text-sm font-semibold tone-bad" role="alert">
+				{{ visits.listError }}
+			</p>
+		</div>
+
+		<RouterLink
+			v-if="settings().allow_engineer_created_visits"
+			:to="{ name: 'visit-new' }"
+			class="fixed bottom-[calc(var(--tabbar-height)+theme(spacing.safe-bottom)+16px)] right-4 z-20 inline-flex h-14 items-center gap-2 rounded-full bg-brand-strong px-5 font-bold text-on-brand shadow-fab active:scale-95"
+		>
+			<Plus :size="22" aria-hidden="true" />
+			New visit
+		</RouterLink>
+	</div>
+</template>

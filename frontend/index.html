@@ -1,22 +1,64 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-	<meta name="theme-color" content="#0284c7">
-	<meta name="apple-mobile-web-app-capable" content="yes">
-	<meta name="apple-mobile-web-app-status-bar-style" content="default">
-	<meta name="apple-mobile-web-app-title" content="CW Service">
-	<meta name="application-name" content="CW Service">
-	<meta name="description" content="C-Water Mobile Field Service & Water Quality Inspection PWA">
-	<link rel="icon" type="image/png" href="/favicon.png">
-	<link rel="apple-touch-icon" href="/manifest/manifest-icon-192.maskable.png">
-	<link rel="apple-touch-icon" sizes="192x192" href="/manifest/manifest-icon-192.maskable.png">
-	<link rel="apple-touch-icon" sizes="512x512" href="/manifest/manifest-icon-512.maskable.png">
-	<title>C-Water Field Service</title>
-</head>
-<body class="bg-slate-50 text-slate-900 antialiased select-none font-sans">
-	<div id="app"></div>
-	<script type="module" src="/src/main.js"></script>
-</body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+		/>
+		<title>C-Water Visits</title>
+		<meta name="description" content="Site visits, inspections and service reports for C-Water field engineers." />
+
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="CW Visits" />
+		<!-- "default" keeps iOS's own status bar strip, so the header never sits under the clock. -->
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<meta name="theme-color" content="#0097B2" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#0B1A22" media="(prefers-color-scheme: dark)" />
+		<meta name="format-detection" content="telephone=no" />
+
+		<link rel="icon" type="image/png" sizes="32x32" href="%ICONS%/favicon-32.png" />
+		<link rel="icon" type="image/png" sizes="96x96" href="%ICONS%/favicon-96.png" />
+		<link rel="apple-touch-icon" href="%ICONS%/apple-touch-icon-180.png" />
+
+		<style>
+			/* First paint, before the bundle arrives: match the app background so there is no flash. */
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+				background: #f3f7f9;
+			}
+			@media (prefers-color-scheme: dark) {
+				html,
+				body {
+					background: #0b1a22;
+				}
+			}
+			#boot-splash {
+				position: fixed;
+				inset: 0;
+				display: grid;
+				place-items: center;
+			}
+			#boot-splash img {
+				width: 84px;
+				height: 84px;
+				border-radius: 20px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="app">
+			<div id="boot-splash"><img src="%ICONS%/icon-192.png" alt="" /></div>
+		</div>
+
+		<script>
+			// Rendered by ERPNext when it serves this page. On the dev server and in the
+			// standalone build the braces stay literal, and the app asks the API instead.
+			window.cw_boot = { csrf_token: "{{ csrf_token }}", site_name: "{{ site_name }}" };
+		</script>
+		<script type="module" src="/src/main.js"></script>
+	</body>
 </html>

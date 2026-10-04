@@ -1,180 +1,152 @@
-<template>
-	<div class="px-4 py-3 space-y-4 max-w-xl mx-auto pb-6">
-		<!-- Technician Identity Card -->
-		<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-			<div class="flex items-center space-x-3.5">
-				<Avatar
-					:label="session.userFullName || 'Eng'"
-					size="xl"
-					class="ring-4 ring-sky-500/20"
-				/>
-				<div class="flex-1 min-w-0">
-					<h2 class="text-base font-extrabold text-ink-gray-9 truncate">{{ session.userFullName }}</h2>
-					<p class="text-xs text-ink-gray-5">{{ session.userEmail }}</p>
-					<div class="flex items-center space-x-2 mt-1.5">
-						<Badge theme="blue" size="sm" variant="subtle" label="Field Service Engineer" />
-						<span class="text-[10px] text-ink-gray-4 font-mono">EMP-0042</span>
-					</div>
-				</div>
-			</div>
+<script setup>
+import { ChevronRight, CloudUpload, Download, LogOut, RefreshCw, SquarePlus } from "@lucide/vue";
+import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 
-			<!-- Shift Status Toggle -->
-			<div class="flex items-center justify-between p-3 bg-surface-gray-2 rounded-xl border border-outline-gray-1">
-				<div class="flex items-center space-x-2">
-					<FeatherIcon name="clock" class="w-4 h-4 text-sky-600" />
-					<div>
-						<span class="text-xs font-bold text-ink-gray-9 block">Duty Shift Status</span>
-						<span class="text-[10px] text-ink-gray-5 block">{{ isOnDuty ? "Active on Field Duty" : "Off Duty / Standby" }}</span>
+import BottomSheet from "@/components/BottomSheet.vue";
+import PageHeader from "@/components/PageHeader.vue";
+import * as db from "@/lib/db";
+import { ago, initials } from "@/lib/format";
+import { applyUpdate, promptInstall, pwa, storageEstimate } from "@/lib/pwa";
+import { loadMasters, masters } from "@/stores/masters";
+import { failedCount, waitingCount } from "@/stores/outbox";
+import { logout, session } from "@/stores/session";
+import { confirm, toast } from "@/stores/ui";
+
+const router = useRouter();
+const iosHelp = ref(false);
+const storage = ref({ usage: 0, quota: 0 });
+const persistent = ref(true);
+const refreshing = ref(false);
+const version = __APP_VERSION__;
+
+const unsynced = computed(() => waitingCount() + failedCount());
+const megabytes = (bytes) => (bytes / 1024 / 1024).toFixed(1);
+
+async function install() {
+	// iOS has no install prompt; the engineer has to use Safari's Share menu.
+	if (pwa.isIos && !pwa.canInstall) {
+		iosHelp.value = true;
+		return;
+	}
+	if (await promptInstall()) toast("App installed.", "ok");
+}
+
+async function refreshCatalogue() {
+	refreshing.value = true;
+	await loadMasters({ force: true });
+	refreshing.value = false;
+	toast(masters.error ? "The lists could not be updated. Check your connection." : "Lists updated.", masters.error ? "bad" : "ok");
+}
+
+async function signOut() {
+	const ok = await confirm({
+		title: "Sign out?",
+		message: unsynced.value
+			? `${unsynced.value} change(s) have not reached the server yet. Signing out deletes them from this phone.`
+			: "Visits saved on this phone will be removed. They stay on the server.",
+		confirmLabel: unsynced.value ? "Sign out and lose changes" : "Sign out",
+		danger: Boolean(unsynced.value),
+	});
+	if (!ok) return;
+	await logout();
+	router.replace({ name: "login" });
+}
+
+onMounted(async () => {
+	storage.value = await storageEstimate();
+	persistent.value = await db.isPersistent();
+});
+</script>
+
+<template>
+	<div class="flex h-full flex-col">
+		<PageHeader title="Profile" />
+
+		<div class="scroll-area min-h-0 flex-1">
+			<div class="mx-auto max-w-xl space-y-5 px-4 pb-28 pt-4">
+				<section class="card flex items-center gap-4 p-5">
+					<span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-strong text-lg font-extrabold text-on-brand" aria-hidden="true">
+						{{ initials(session.boot?.full_name) }}
+					</span>
+					<div class="min-w-0">
+						<h2 class="truncate text-lg font-extrabold text-ink">{{ session.boot?.full_name }}</h2>
+						<p class="truncate text-sm text-ink-2">{{ session.boot?.user }}</p>
+						<p class="truncate text-sm text-ink-3">Employee {{ session.boot?.employee }}</p>
 					</div>
-				</div>
-				<button
-					@click="isOnDuty = !isOnDuty"
-					class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-					:class="isOnDuty ? 'bg-sky-600' : 'bg-slate-300'"
-				>
-					<span
-						class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-						:class="isOnDuty ? 'translate-x-5' : 'translate-x-0'"
-					/>
+				</section>
+
+				<section>
+					<h2 class="section-title">Sync</h2>
+					<RouterLink :to="{ name: 'sync' }" class="card flex min-h-[60px] items-center gap-3 px-4 py-3 active:bg-sunken">
+						<CloudUpload :size="20" class="shrink-0 text-ink-3" aria-hidden="true" />
+						<span class="flex-1 font-semibold text-ink">
+							{{ unsynced ? `${unsynced} change${unsynced === 1 ? "" : "s"} waiting to sync` : "Everything is synced" }}
+						</span>
+						<ChevronRight :size="18" class="text-ink-3" aria-hidden="true" />
+					</RouterLink>
+					<p v-if="!persistent" class="mt-2 rounded-control px-4 py-3 text-sm font-semibold tone-warn">
+						This browser is not keeping data between sessions (private mode?). Offline work will be lost if the app is closed.
+					</p>
+				</section>
+
+				<section>
+					<h2 class="section-title">This app</h2>
+					<div class="card divide-y divide-line">
+						<button v-if="pwa.updateReady" type="button" class="flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left active:bg-sunken" @click="applyUpdate">
+							<Download :size="20" class="shrink-0 text-brand-strong" aria-hidden="true" />
+							<span class="flex-1 font-semibold text-brand-strong">Update to the new version</span>
+						</button>
+						<button v-if="!pwa.installed && (pwa.canInstall || pwa.isIos)" type="button" class="flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left active:bg-sunken" @click="install">
+							<SquarePlus :size="20" class="shrink-0 text-ink-3" aria-hidden="true" />
+							<span class="flex-1">
+								<span class="block font-semibold text-ink">Install on this phone</span>
+								<span class="block text-sm text-ink-2">Opens full screen and keeps offline data longer.</span>
+							</span>
+						</button>
+						<button type="button" class="flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left active:bg-sunken" :disabled="refreshing" @click="refreshCatalogue">
+							<RefreshCw :size="20" class="shrink-0 text-ink-3" :class="refreshing ? 'spin' : ''" aria-hidden="true" />
+							<span class="flex-1">
+								<span class="block font-semibold text-ink">Update lists</span>
+								<span class="block text-sm text-ink-2">
+									Parameters, service types and categories{{ masters.loadedAt ? `, updated ${ago(masters.loadedAt)}` : "" }}
+								</span>
+							</span>
+						</button>
+					</div>
+					<p class="mt-2 px-1 text-xs text-ink-3">
+						Version {{ version }}<template v-if="storage.usage"> · {{ megabytes(storage.usage) }} MB stored on this phone</template>
+					</p>
+				</section>
+
+				<button type="button" class="btn-secondary btn-block text-bad" @click="signOut">
+					<LogOut :size="18" aria-hidden="true" />
+					Sign out
 				</button>
 			</div>
 		</div>
 
-		<!-- Field Device & Offline Storage -->
-		<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-			<h3 class="text-xs font-bold text-ink-gray-5 uppercase tracking-wider border-b border-outline-gray-1 pb-2">
-				Offline Storage & Sync Status
-			</h3>
-
-			<div class="grid grid-cols-2 gap-2 text-center text-xs">
-				<div class="p-2.5 bg-surface-gray-2 rounded-xl">
-					<span class="text-[10px] text-ink-gray-4 block uppercase font-bold">Cached Visits</span>
-					<span class="text-base font-extrabold text-ink-gray-9 mt-0.5 block">{{ visitsData.visits.length }}</span>
-				</div>
-				<div class="p-2.5 bg-surface-gray-2 rounded-xl">
-					<span class="text-[10px] text-ink-gray-4 block uppercase font-bold">Pending Queue</span>
-					<span class="text-base font-extrabold text-amber-600 mt-0.5 block">{{ syncStore.pendingCount }}</span>
-				</div>
-			</div>
-
-			<div class="space-y-2 pt-1">
-				<Button
-					variant="subtle"
-					theme="blue"
-					size="sm"
-					class="w-full justify-center !rounded-xl text-xs font-bold"
-					@click="handleRefreshCache"
-				>
-					<template #prefix>
-						<FeatherIcon name="refresh-cw" class="w-3.5 h-3.5" />
-					</template>
-					Refresh Field Data from Server
-				</Button>
-
-				<Button
-					variant="ghost"
-					theme="red"
-					size="sm"
-					class="w-full justify-center !rounded-xl text-xs font-bold !text-red-600"
-					@click="handleClearCache"
-				>
-					<template #prefix>
-						<FeatherIcon name="trash-2" class="w-3.5 h-3.5" />
-					</template>
-					Clear Local Offline Storage
-				</Button>
-			</div>
-		</div>
-
-		<!-- ERPNext Server Connection Status -->
-		<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-2">
-			<div class="flex items-center justify-between">
-				<div class="flex items-center space-x-2">
-					<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-					<h4 class="text-xs font-bold text-ink-gray-9">ERPNext Backend</h4>
-				</div>
-				<Badge theme="blue" size="sm" variant="subtle" label="Active" />
-			</div>
-			<p class="text-xs font-mono text-sky-700 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 break-all font-semibold">
-				{{ currentServerUrl }}
-			</p>
-		</div>
-
-		<!-- Hardware Permissions & System Notifications -->
-		<PermissionsCard />
-
-		<!-- PWA App Installation -->
-		<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-			<div class="flex items-center justify-between">
-				<div class="flex items-center space-x-2.5">
-					<div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-						<FeatherIcon name="download" class="w-4 h-4" />
-					</div>
-					<div>
-						<h4 class="text-xs font-bold text-ink-gray-9">Progressive Web App</h4>
-						<p class="text-[10px] text-ink-gray-5">Home screen installation & offline launch</p>
-					</div>
-				</div>
-				<Badge theme="green" size="sm" variant="subtle" label="v1.2 PWA" />
-			</div>
-
-			<p class="text-xs text-ink-gray-6 leading-relaxed">
-				For fast offline field service on mobile devices, tap Share in your browser and select <strong>"Add to Home Screen"</strong>.
-			</p>
-		</div>
-
-		<!-- Logout Action -->
-		<div class="pt-2">
-			<Button
-				variant="solid"
-				theme="red"
-				size="lg"
-				class="w-full justify-center !rounded-xl !py-3 font-bold shadow-xs text-sm"
-				@click="handleLogout"
-			>
-				<template #prefix>
-					<FeatherIcon name="log-out" class="w-4 h-4 mr-1" />
-				</template>
-				Log Out of Field Service
-			</Button>
-		</div>
+		<BottomSheet :open="iosHelp" title="Install on iPhone" @close="iosHelp = false">
+			<ol class="space-y-4 py-2 text-ink">
+				<li class="flex items-start gap-3">
+					<span class="numeric flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold tone-brand">1</span>
+					<span>
+						Open this page in <strong>Safari</strong> and tap the Share button
+						<svg class="-mt-1 inline h-5 w-5 text-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Share icon">
+							<path d="M12 3v12" /><path d="m8 7 4-4 4 4" /><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1" />
+						</svg>
+						at the bottom of the screen.
+					</span>
+				</li>
+				<li class="flex items-start gap-3">
+					<span class="numeric flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold tone-brand">2</span>
+					<span>Scroll down and choose <strong>Add to Home Screen</strong>.</span>
+				</li>
+				<li class="flex items-start gap-3">
+					<span class="numeric flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold tone-brand">3</span>
+					<span>Tap <strong>Add</strong>, then open CW Visits from your home screen.</span>
+				</li>
+			</ol>
+		</BottomSheet>
 	</div>
 </template>
-
-<script setup>
-import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
-import { Avatar, Badge, Button, FeatherIcon } from "frappe-ui";
-import { session, getApiBaseUrl, DEFAULT_ERPNEXT_URL } from "@/data/session";
-import { visitsData } from "@/data/visits";
-import { syncStore } from "@/stores/sync";
-import PermissionsCard from "@/components/PermissionsCard.vue";
-
-const router = useRouter();
-const isOnDuty = ref(true);
-const currentServerUrl = computed(() => getApiBaseUrl() || DEFAULT_ERPNEXT_URL);
-
-async function handleRefreshCache() {
-	try {
-		await visitsData.fetchVisits();
-		alert("Field cache refreshed successfully from Frappe server!");
-	} catch (err) {
-		alert("Refresh failed: " + err.message);
-	}
-}
-
-function handleClearCache() {
-	if (confirm("Are you sure you want to clear your local storage cache? Any unsynced changes will be lost.")) {
-		localStorage.clear();
-		alert("Local storage cleared. Reloading app.");
-		window.location.reload();
-	}
-}
-
-function handleLogout() {
-	if (confirm("Log out of C-Water Field Service?")) {
-		session.logout();
-		router.replace({ name: "Login" });
-	}
-}
-</script>

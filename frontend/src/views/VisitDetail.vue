@@ -1,1656 +1,260 @@
-<template>
-	<div v-if="visit" class="px-4 py-3 space-y-3 max-w-xl mx-auto pb-28">
-		<!-- Top Bar: Navigation, Status & Save Draft -->
-		<div class="flex items-center justify-between gap-2">
-			<Button
-				variant="ghost"
-				theme="gray"
-				size="sm"
-				class="!p-1.5 !rounded-xl text-slate-700 hover:bg-slate-100"
-				@click="$router.push('/visits')"
-			>
-				<template #prefix>
-					<FeatherIcon name="chevron-left" class="w-5 h-5 mr-0.5 stroke-[2.5]" />
-				</template>
-				<span class="font-bold text-xs">Visits</span>
-			</Button>
-
-			<div class="flex items-center gap-2">
-				<span
-					v-if="saveFeedback"
-					class="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full transition-all animate-fade-in"
-				>
-					{{ saveFeedback }}
-				</span>
-				<Button
-					variant="subtle"
-					theme="gray"
-					size="sm"
-					class="!rounded-xl text-xs font-bold"
-					:loading="isSaving"
-					@click="saveCurrentDraft(false)"
-					title="Save current progress without submitting"
-				>
-					<template #prefix>
-						<FeatherIcon name="save" class="w-3.5 h-3.5 mr-1" />
-					</template>
-					Save Draft
-				</Button>
-				<StatusBadge :status="visit.visit_status" />
-			</div>
-		</div>
-
-		<!-- Visit Summary Card -->
-		<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-2">
-			<div class="flex justify-between items-start gap-2">
-				<div class="truncate">
-					<div class="flex items-center gap-1.5 flex-wrap">
-						<span class="text-[10px] font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
-							{{ visit.name }}
-						</span>
-						<span
-							v-if="visit.creation_source === 'Engineer On-Site'"
-							class="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full"
-						>
-							📍 On-Site Created
-						</span>
-					</div>
-					<h2 class="text-base font-extrabold text-slate-900 mt-1 truncate">
-						{{ visit.customer_name || visit.customer }}
-					</h2>
-					<p class="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-						<FeatherIcon name="map-pin" class="w-3.5 h-3.5 text-sky-600 shrink-0" />
-						<span class="truncate">{{ visit.service_location || "Client Facility" }}</span>
-					</p>
-				</div>
-				<div class="text-right shrink-0">
-					<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-						{{ visit.visit_type || "Routine Inspection" }}
-					</span>
-					<span class="block text-[11px] text-slate-400 mt-1">Planned: {{ visit.planned_date }}</span>
-				</div>
-			</div>
-		</div>
-
-		<!-- Subtabs Segmented Control (Inspection Steps) -->
-		<div class="flex space-x-1.5 overflow-x-auto no-scrollbar py-1">
-			<button
-				v-for="tab in tabs"
-				:key="tab.id"
-				@click="switchTab(tab.id)"
-				class="whitespace-nowrap text-xs font-bold px-3 py-1.5 rounded-full transition-all border shrink-0 flex items-center gap-1.5"
-				:class="activeTab === tab.id
-					? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-					: 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'"
-			>
-				<FeatherIcon :name="tab.icon" class="w-3.5 h-3.5" />
-				<span>{{ tab.label }}</span>
-				<span
-					v-if="tab.badge != null && tab.badge > 0"
-					class="w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-extrabold"
-					:class="activeTab === tab.id ? 'bg-white text-sky-700' : 'bg-slate-200 text-slate-800'"
-				>
-					{{ tab.badge }}
-				</span>
-			</button>
-		</div>
-
-		<!-- ========================================== -->
-		<!-- SUBTAB 1: OVERVIEW & SITE CONTACT          -->
-		<!-- ========================================== -->
-		<div v-if="activeTab === 'overview'" class="space-y-3">
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-outline-gray-1 pb-2">
-					Site & Contact Information
-				</h3>
-				<div class="grid grid-cols-2 gap-3 text-xs">
-					<div>
-						<span class="text-slate-400 block text-[10px] font-bold uppercase">Customer</span>
-						<span class="font-extrabold text-slate-900">{{ visit.customer_name || visit.customer }}</span>
-					</div>
-					<div>
-						<span class="text-slate-400 block text-[10px] font-bold uppercase">Location / Plant</span>
-						<span class="font-extrabold text-slate-900">{{ visit.service_location || "Main Site" }}</span>
-					</div>
-					<div>
-						<span class="text-slate-400 block text-[10px] font-bold uppercase">Contact Person</span>
-						<span class="font-bold text-slate-800">{{ siteDetails.primary_contact_person || "Site Supervisor" }}</span>
-					</div>
-					<div>
-						<span class="text-slate-400 block text-[10px] font-bold uppercase">Phone</span>
-						<a
-							v-if="siteDetails.primary_contact_phone"
-							:href="`tel:${siteDetails.primary_contact_phone}`"
-							class="font-bold text-sky-600 underline flex items-center gap-1"
-						>
-							<FeatherIcon name="phone-call" class="w-3.5 h-3.5" />
-							<span>{{ siteDetails.primary_contact_phone }}</span>
-						</a>
-						<span v-else class="font-bold text-slate-800">+20 100 123 4567</span>
-					</div>
-				</div>
-
-				<!-- Linked ERPNext Service Request -->
-				<div v-if="visit.service_request" class="pt-2 border-t border-slate-100">
-					<div class="p-3 bg-sky-50/70 border border-sky-200 rounded-xl flex items-center justify-between">
-						<div>
-							<div class="flex items-center gap-1.5">
-								<FeatherIcon name="file-text" class="w-4 h-4 text-sky-700" />
-								<span class="text-xs font-bold text-sky-900">Linked Service Request:</span>
-								<span class="font-mono text-xs font-extrabold text-sky-800">{{ visit.service_request }}</span>
-							</div>
-							<p v-if="visit.service_request_details?.issue_description" class="text-[11px] text-slate-600 mt-1 line-clamp-1">
-								{{ visit.service_request_details.issue_description }}
-							</p>
-						</div>
-						<span
-							class="text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0"
-							:class="visit.service_request_details?.status === 'Resolved' ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-200 text-sky-900'"
-						>
-							{{ visit.service_request_details?.status || 'In Progress' }}
-						</span>
-					</div>
-				</div>
-
-				<div v-if="siteDetails.address_display" class="pt-2 border-t border-slate-100 text-xs">
-					<span class="text-slate-400 block text-[10px] font-bold uppercase mb-0.5">Facility Address</span>
-					<p class="text-slate-700 font-medium">{{ siteDetails.address_display }}</p>
-				</div>
-
-				<!-- Site Access Instructions -->
-				<div class="pt-2 border-t border-slate-100">
-					<span class="text-slate-400 block text-[10px] font-bold uppercase mb-1">Safety & Access Protocol</span>
-					<div class="p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-900 leading-relaxed font-medium">
-						{{ siteDetails.special_site_instructions || "Mandatory PPE: Safety helmet, protective eye goggles, and steel-toe safety boots required before entering pump room." }}
-					</div>
-				</div>
-
-				<!-- Scope / Description -->
-				<div v-if="visit.description" class="pt-2 border-t border-slate-100">
-					<span class="text-slate-400 block text-[10px] font-bold uppercase mb-1">Visit Scope & Notes</span>
-					<div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 leading-relaxed">
-						{{ visit.description }}
-					</div>
-				</div>
-
-				<!-- Attached Check-in Photo Preview if exists -->
-				<div v-if="visit.site_photo" class="pt-2 border-t border-slate-100">
-					<span class="text-slate-400 block text-[10px] font-bold uppercase mb-1.5">Site Check-In Photo</span>
-					<div class="flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-200">
-						<img
-							:src="visit.site_photo"
-							alt="Site Check-in"
-							class="w-16 h-16 rounded-lg object-cover border border-slate-300 shadow-2xs"
-						/>
-						<div class="text-xs">
-							<p class="font-bold text-slate-800">Site Photo Attached</p>
-							<p class="text-[11px] text-emerald-600 font-semibold">Location Verified & Approved</p>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- ========================================== -->
-		<!-- SUBTAB 2: GPS GEOFENCE & CHECK-IN          -->
-		<!-- ========================================== -->
-		<div v-if="activeTab === 'geofence'" class="space-y-3">
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-outline-gray-1 pb-2">
-					GPS Geofence Verification
-				</h3>
-
-				<div class="p-3.5 bg-slate-50 rounded-xl text-xs space-y-2 text-slate-700">
-					<div class="flex justify-between items-center">
-						<span class="font-medium">Target Coordinates:</span>
-						<strong class="font-mono text-slate-900">{{ targetLat.toFixed(4) }}° N, {{ targetLng.toFixed(4) }}° E</strong>
-					</div>
-					<div class="flex justify-between items-center">
-						<span class="font-medium">Allowed Radius:</span>
-						<strong class="text-slate-900">{{ allowedRadius }} meters</strong>
-					</div>
-					<div v-if="currentDistance !== null" class="flex justify-between items-center pt-2 border-t border-slate-200">
-						<span class="font-bold">Calculated Distance:</span>
-						<strong
-							class="px-2 py-0.5 rounded-md font-mono font-extrabold text-xs"
-							:class="currentDistance <= allowedRadius ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
-						>
-							{{ Math.round(currentDistance) }} meters
-						</strong>
-					</div>
-				</div>
-
-				<!-- Geofence Status Alert -->
-				<div
-					v-if="visit.visit_status !== 'Scheduled'"
-					class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2 font-bold"
-				>
-					<FeatherIcon name="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 stroke-[2.5]" />
-					<span>Checked In: {{ visit.checkin_time || "Today 09:30 AM" }} (Verified within Geofence)</span>
-				</div>
-
-				<!-- Geofence Justification Warning if outside radius -->
-				<div
-					v-if="currentDistance !== null && currentDistance > allowedRadius && visit.visit_status === 'Scheduled'"
-					class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-2"
-				>
-					<div class="flex items-center gap-1.5 font-bold">
-						<FeatherIcon name="alert-triangle" class="w-4 h-4 text-amber-600" />
-						<span>Outside Standard Geofence ({{ Math.round(currentDistance) }}m)</span>
-					</div>
-					<p class="text-[11px] text-amber-800 leading-tight">
-						Please provide a justification reason for supervisor review before proceeding.
-					</p>
-					<input
-						type="text"
-						v-model="geofenceReason"
-						placeholder="e.g. Client security gate delayed entry, inspecting outer pumps"
-						class="w-full px-3 py-2 text-xs rounded-lg border border-amber-300 bg-white outline-none focus:ring-1 focus:ring-amber-500 font-medium"
-					/>
-				</div>
-
-				<!-- Check-In Action Button -->
-				<div v-if="visit.visit_status === 'Scheduled'" class="pt-1">
-					<Button
-						variant="solid"
-						theme="blue"
-						size="lg"
-						:loading="isCheckingIn"
-						loading-text="Acquiring GPS & Verifying..."
-						class="w-full justify-center !rounded-xl !py-3 font-bold shadow-md"
-						@click="handleCheckIn"
-					>
-						<template #prefix>
-							<FeatherIcon name="map-pin" class="w-4 h-4 mr-1.5" />
-						</template>
-						Capture GPS & Check-In
-					</Button>
-				</div>
-			</div>
-		</div>
-
-		<!-- ========================================== -->
-		<!-- SUBTAB 3: WATER PARAMETER TESTS            -->
-		<!-- ========================================== -->
-		<div v-if="activeTab === 'readings'" class="space-y-3">
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<div class="flex justify-between items-center border-b border-outline-gray-1 pb-2">
-					<div>
-						<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Water Quality Tests</h3>
-						<p class="text-[11px] text-slate-500 font-medium">Out-of-range values trigger quality alerts</p>
-					</div>
-					<div class="flex items-center gap-1.5">
-						<span
-							v-if="outOfRangeCount > 0"
-							class="text-[10px] font-extrabold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200"
-						>
-							{{ outOfRangeCount }} Out of Range
-						</span>
-						<span class="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full">
-							{{ visit.readings ? visit.readings.length : 0 }} Parameters
-						</span>
-					</div>
-				</div>
-
-				<!-- Readings List -->
-				<div class="space-y-2.5">
-					<ReadingRow
-						v-for="(reading, idx) in visit.readings"
-						:key="idx"
-						:reading="reading"
-						@remove="removeReading(idx)"
-					/>
-				</div>
-
-				<!-- Add Parameter Button -->
-				<button
-					type="button"
-					@click="openAddReadingModal"
-					class="w-full py-2.5 px-3 rounded-xl border border-dashed border-sky-300 text-sky-700 bg-sky-50/50 hover:bg-sky-50 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98"
-				>
-					<FeatherIcon name="plus" class="w-4 h-4 stroke-[2.5]" />
-					<span>Add Water Test Parameter</span>
-				</button>
-			</div>
-		</div>
-
-		<!-- ========================================== -->
-		<!-- SUBTAB 4: SAFETY & INSPECTION CHECKLIST    -->
-		<!-- ========================================== -->
-		<div v-if="activeTab === 'checklist'" class="space-y-3">
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<div class="flex justify-between items-center border-b border-outline-gray-1 pb-2">
-					<div>
-						<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Safety & Inspection Protocol</h3>
-						<p class="text-[11px] text-slate-500 font-medium">Verify standard plant safety and operational checkpoints</p>
-					</div>
-					<span class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
-						{{ completedChecklistCount }} / {{ visit.checklist_items ? visit.checklist_items.length : 0 }} Reviewed
-					</span>
-				</div>
-
-				<!-- Checklist Items List -->
-				<div class="space-y-2.5">
-					<ChecklistItem
-						v-for="(item, idx) in visit.checklist_items"
-						:key="idx"
-						:item="item"
-						:allow-remove="idx >= 6"
-						@remove="removeChecklistItem(idx)"
-					/>
-				</div>
-
-				<!-- Add Custom Checklist Item Button -->
-				<button
-					type="button"
-					@click="showAddChecklistModal = true"
-					class="w-full py-2.5 px-3 rounded-xl border border-dashed border-slate-300 text-slate-700 bg-slate-50/60 hover:bg-slate-100 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98"
-				>
-					<FeatherIcon name="plus" class="w-4 h-4 stroke-[2.5]" />
-					<span>Add Custom Checkpoint</span>
-				</button>
-			</div>
-		</div>
-
-		<!-- ========================================== -->
-		<!-- SUBTAB: WORKING STEPS & OPERATIONS LOG    -->
-		<!-- ========================================== -->
-		<div v-if="activeTab === 'operations'" class="space-y-3">
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<div class="flex justify-between items-center border-b border-outline-gray-1 pb-2">
-					<div>
-						<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Working Steps & Operations Log</h3>
-						<p class="text-[11px] text-slate-500 font-medium">Record descaling, chemical dosing, washing, blowdown & actions</p>
-					</div>
-					<Button
-						variant="solid"
-						theme="blue"
-						size="sm"
-						class="!rounded-xl !text-xs font-bold"
-						@click="showAddOperationModal = true"
-					>
-						<template #prefix>
-							<FeatherIcon name="plus" class="w-3.5 h-3.5" />
-						</template>
-						Add Step
-					</Button>
-				</div>
-
-				<div v-if="visit.operations && visit.operations.length" class="space-y-3">
-					<div
-						v-for="(op, idx) in visit.operations"
-						:key="idx"
-						class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-2 text-xs"
-					>
-						<div class="flex items-start justify-between gap-2">
-							<div>
-								<div class="flex items-center gap-2">
-									<span class="w-5 h-5 rounded-full bg-sky-100 text-sky-700 font-extrabold text-[11px] flex items-center justify-center">
-										{{ idx + 1 }}
-									</span>
-									<h4 class="font-extrabold text-slate-900 text-sm">{{ op.operation_type }}</h4>
-								</div>
-								<p class="text-[11px] text-slate-600 font-semibold mt-0.5 ml-7">
-									Unit / Area: {{ op.area_or_equipment || 'Main System' }}
-								</p>
-							</div>
-							<div class="flex items-center gap-1.5 shrink-0">
-								<span
-									class="px-2 py-0.5 rounded-md text-[10px] font-extrabold"
-									:class="{
-										'bg-emerald-100 text-emerald-800': op.outcome === 'Successful',
-										'bg-amber-100 text-amber-800': op.outcome === 'Partially Successful',
-										'bg-orange-100 text-orange-800': op.outcome === 'Incomplete',
-										'bg-rose-100 text-rose-800': op.outcome === 'Failed',
-									}"
-								>
-									{{ op.outcome || 'Successful' }}
-								</span>
-								<span v-if="op.duration_minutes" class="text-[10px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">
-									{{ op.duration_minutes }} min
-								</span>
-								<button
-									type="button"
-									@click="removeOperation(idx)"
-									class="text-slate-400 hover:text-rose-600 p-1"
-									title="Delete working step"
-								>
-									<FeatherIcon name="trash-2" class="w-3.5 h-3.5" />
-								</button>
-							</div>
-						</div>
-
-						<div v-if="op.chemicals_used" class="bg-white p-2 rounded-lg border border-slate-200 text-[11px] ml-7">
-							<span class="font-bold text-slate-700">Chemicals / Agents Used:</span>
-							<p class="text-slate-600 mt-0.5">{{ op.chemicals_used }}</p>
-						</div>
-
-						<div v-if="op.remarks" class="text-[11px] text-slate-600 ml-7">
-							<span class="font-bold text-slate-700">Remarks:</span> {{ op.remarks }}
-						</div>
-					</div>
-				</div>
-
-				<div v-else class="text-center py-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 p-4">
-					<FeatherIcon name="tool" class="w-8 h-8 text-slate-400 mx-auto mb-1 stroke-[1.5]" />
-					<p class="text-xs font-bold text-slate-700">No Working Steps Logged</p>
-					<p class="text-[11px] text-slate-400 mb-2">Record operations such as blowdown, washing, or descaling performed during the visit.</p>
-					<Button
-						variant="subtle"
-						theme="blue"
-						size="sm"
-						class="!rounded-xl !text-xs font-bold"
-						@click="showAddOperationModal = true"
-					>
-						+ Add First Step
-					</Button>
-				</div>
-			</div>
-		</div>
-
-		<!-- ========================================== -->
-		<!-- SUBTAB 5: EQUIPMENT DEFECT FINDINGS        -->
-		<!-- ========================================== -->
-		<div v-if="activeTab === 'findings'" class="space-y-3">
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<div class="flex justify-between items-center border-b border-outline-gray-1 pb-2">
-					<div>
-						<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Equipment Defect Findings</h3>
-						<p class="text-[11px] text-slate-500 font-medium">Log fouling, corrosion, leaks, or mechanical issues</p>
-					</div>
-					<Button
-						variant="solid"
-						theme="blue"
-						size="sm"
-						class="!rounded-xl !text-xs font-bold"
-						@click="showAddFindingModal = true"
-					>
-						<template #prefix>
-							<FeatherIcon name="plus" class="w-3.5 h-3.5" />
-						</template>
-						Log Defect
-					</Button>
-				</div>
-
-				<div v-if="visit.findings && visit.findings.length" class="space-y-2.5">
-					<div
-						v-for="(finding, idx) in visit.findings"
-						:key="idx"
-						class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2"
-					>
-						<div class="flex justify-between items-start gap-2">
-							<strong class="text-slate-900 text-xs font-extrabold">{{ finding.category || "General Finding" }}</strong>
-							<div class="flex items-center gap-2">
-								<span
-									class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase"
-									:class="{
-										'bg-rose-100 text-rose-800 border border-rose-200': finding.severity === 'Critical',
-										'bg-amber-100 text-amber-800 border border-amber-200': finding.severity === 'Major',
-										'bg-blue-100 text-blue-800 border border-blue-200': finding.severity === 'Minor',
-										'bg-slate-100 text-slate-600': finding.severity === 'Info' || !finding.severity,
-									}"
-								>
-									{{ finding.severity || 'Minor' }}
-								</span>
-								<button
-									type="button"
-									@click="removeFinding(idx)"
-									class="text-slate-400 hover:text-rose-600 p-1"
-									title="Delete finding"
-								>
-									<FeatherIcon name="trash-2" class="w-3.5 h-3.5" />
-								</button>
-							</div>
-						</div>
-						<p class="text-slate-700 leading-relaxed font-medium">{{ finding.observation }}</p>
-						<div v-if="finding.recommendation" class="pt-1.5 border-t border-slate-200/70 text-[11px] text-sky-800">
-							<strong>Recommended Action:</strong> {{ finding.recommendation }}
-						</div>
-					</div>
-				</div>
-
-				<div v-else class="text-center py-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 p-4">
-					<FeatherIcon name="shield-check" class="w-8 h-8 text-emerald-500 mx-auto mb-1 stroke-[1.5]" />
-					<p class="text-xs font-bold text-slate-700">No Defects Logged</p>
-					<p class="text-[11px] text-slate-400">All equipment inspected in good operating condition.</p>
-				</div>
-			</div>
-		</div>
-
-		<!-- ========================================== -->
-		<!-- SUBTAB 6: CHEMICAL & SPARES REQUISITION    -->
-		<!-- ========================================== -->
-		<div v-if="activeTab === 'requirements'" class="space-y-3">
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<div class="flex justify-between items-center border-b border-outline-gray-1 pb-2">
-					<div>
-						<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Chemicals & Spare Parts Requisition</h3>
-						<p class="text-[11px] text-slate-500 font-medium">Request replacement chemicals or spare parts for site</p>
-					</div>
-					<Button
-						variant="solid"
-						theme="blue"
-						size="sm"
-						class="!rounded-xl !text-xs font-bold"
-						@click="showAddRequirementModal = true"
-					>
-						<template #prefix>
-							<FeatherIcon name="plus" class="w-3.5 h-3.5" />
-						</template>
-						Add Requisition
-					</Button>
-				</div>
-
-				<div v-if="visit.requirements && visit.requirements.length" class="space-y-2.5">
-					<div
-						v-for="(item, idx) in visit.requirements"
-						:key="idx"
-						class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs gap-3"
-					>
-						<div class="truncate">
-							<strong class="text-slate-900 block truncate">{{ item.item_name || item.item_code }}</strong>
-							<p class="text-[11px] text-slate-500 truncate">{{ item.reason || item.item_code }}</p>
-							<span
-								class="inline-block mt-1 text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded"
-								:class="item.urgency === 'Emergency' ? 'bg-rose-100 text-rose-700' : 'bg-slate-200 text-slate-700'"
-							>
-								{{ item.urgency || 'Normal' }}
-							</span>
-						</div>
-						<div class="flex items-center gap-3 shrink-0">
-							<span class="font-extrabold text-sky-700 text-sm">
-								{{ item.quantity }} {{ item.uom || 'Nos' }}
-							</span>
-							<button
-								type="button"
-								@click="removeRequirement(idx)"
-								class="text-slate-400 hover:text-rose-600 p-1"
-								title="Delete requisition"
-							>
-								<FeatherIcon name="trash-2" class="w-3.5 h-3.5" />
-							</button>
-						</div>
-					</div>
-				</div>
-
-				<div v-else class="text-center py-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 p-4">
-					<FeatherIcon name="box" class="w-8 h-8 text-slate-400 mx-auto mb-1 stroke-[1.5]" />
-					<p class="text-xs font-bold text-slate-700">No Spares or Chemicals Required</p>
-					<p class="text-[11px] text-slate-400">Chemical levels sufficient and no replacements needed.</p>
-				</div>
-			</div>
-		</div>
-
-		<!-- ========================================== -->
-		<!-- SUBTAB 7: SUMMARY, EXPENSES & SIGN-OFF     -->
-		<!-- ========================================== -->
-		<div v-if="activeTab === 'submit'" class="space-y-4">
-			<!-- On-site Expenses Card -->
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<div class="flex justify-between items-center border-b border-outline-gray-1 pb-2">
-					<div>
-						<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Field Expenses</h3>
-						<p class="text-[11px] text-slate-500 font-medium">Total: {{ totalExpenses.toFixed(2) }} EGP</p>
-					</div>
-					<Button
-						variant="ghost"
-						theme="blue"
-						size="sm"
-						class="!rounded-xl text-xs font-bold"
-						@click="showAddExpenseModal = true"
-					>
-						+ Add Expense
-					</Button>
-				</div>
-
-				<div v-if="visit.expenses && visit.expenses.length" class="space-y-2">
-					<div
-						v-for="(exp, idx) in visit.expenses"
-						:key="idx"
-						class="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between text-xs"
-					>
-						<div>
-							<strong class="text-slate-900">{{ exp.expense_type }}</strong>
-							<p class="text-[11px] text-slate-500">{{ exp.remarks || 'Out-of-pocket' }}</p>
-						</div>
-						<div class="flex items-center gap-2">
-							<span class="font-extrabold text-slate-900">{{ parseFloat(exp.amount || 0).toFixed(2) }} EGP</span>
-							<button
-								type="button"
-								@click="removeExpense(idx)"
-								class="text-slate-400 hover:text-rose-600 p-1"
-							>
-								<FeatherIcon name="trash-2" class="w-3.5 h-3.5" />
-							</button>
-						</div>
-					</div>
-				</div>
-				<p v-else class="text-xs text-slate-400 text-center py-2">No out-of-pocket field expenses claimed.</p>
-			</div>
-
-			<!-- Executive Summary & Service Outcome -->
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-outline-gray-1 pb-2">
-					Inspection Findings & Outcome
-				</h3>
-
-				<div>
-					<label class="text-xs font-bold text-slate-700 block mb-1">Service Execution Outcome *</label>
-					<select
-						v-model="visit.outcome"
-						class="w-full px-3 py-2.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 text-slate-900 outline-none focus:border-sky-500"
-					>
-						<option value="Resolved">Resolved / Completed Successfully</option>
-						<option value="Partially Resolved">Partially Resolved (Follow-up Required)</option>
-						<option value="Follow-up Required">Follow-up Required</option>
-						<option value="Not Resolved">Not Resolved / Breakdown Unresolved</option>
-						<option value="Customer Unavailable">Customer Unavailable</option>
-						<option value="Cancelled">Cancelled</option>
-					</select>
-				</div>
-
-				<div>
-					<label class="text-xs font-bold text-slate-700 block mb-1">Executive Summary / Technical Notes</label>
-					<textarea
-						v-model="visit.executive_summary"
-						rows="3"
-						placeholder="Detailed summary of maintenance conducted, chemical dosing status, and plant condition..."
-						class="w-full p-3 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 outline-none focus:border-sky-500 font-medium"
-					></textarea>
-				</div>
-			</div>
-
-			<!-- Customer Representative Sign-Off -->
-			<div class="bg-surface-white p-4 rounded-2xl border border-outline-gray-1 shadow-xs space-y-3">
-				<h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-outline-gray-1 pb-2">
-					Customer Representative Sign-Off
-				</h3>
-
-				<div class="grid grid-cols-2 gap-2.5">
-					<div>
-						<label class="text-xs font-bold text-slate-700 block mb-1">Signatory Name *</label>
-						<input
-							type="text"
-							v-model="customerSignerName"
-							placeholder="e.g. Eng. Hani Mansoor"
-							class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 outline-none focus:border-sky-500 font-medium"
-						/>
-					</div>
-					<div>
-						<label class="text-xs font-bold text-slate-700 block mb-1">Representative Phone</label>
-						<input
-							type="tel"
-							v-model="customerSignerPhone"
-							placeholder="e.g. +966 50 123 4567"
-							class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 outline-none focus:border-sky-500 font-medium"
-						/>
-					</div>
-				</div>
-
-				<div>
-					<label class="text-xs font-bold text-slate-700 block mb-1.5 flex items-center justify-between">
-						<span>Touch Canvas Signature</span>
-						<span class="text-[11px] text-slate-400 font-normal">Customer signs below</span>
-					</label>
-					<SignaturePad ref="sigPad" />
-				</div>
-
-				<!-- Final Submit Button -->
-				<div class="pt-2">
-					<Button
-						variant="solid"
-						theme="blue"
-						size="lg"
-						:loading="isSubmitting"
-						loading-text="Submitting Service Report..."
-						class="w-full justify-center !rounded-xl !py-3.5 font-bold shadow-md text-sm bg-gradient-to-r from-sky-600 to-blue-600"
-						@click="handleSubmitReport"
-					>
-						<template #prefix>
-							<FeatherIcon name="check-square" class="w-5 h-5 mr-1.5" />
-						</template>
-						Submit Technical Service Report
-					</Button>
-				</div>
-			</div>
-		</div>
-
-		<!-- ========================================== -->
-		<!-- MODAL 1: ADD WATER TEST PARAMETER          -->
-		<!-- ========================================== -->
-		<Dialog
-			:options="{ title: 'Add Water Test Parameter', size: 'md' }"
-			v-model="showAddReadingModal"
-		>
-			<template #body-content>
-				<form @submit.prevent="handleAddReadingSubmit" class="space-y-3 pt-2">
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Parameter Preset</label>
-						<select
-							v-model="newReading.preset"
-							@change="applyReadingPreset"
-							class="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50"
-						>
-							<option value="pH">pH Level (6.5 - 8.5 pH)</option>
-							<option value="TDS">Total Dissolved Solids (100 - 1000 ppm)</option>
-							<option value="Conductivity">Electrical Conductivity (200 - 1500 µS/cm)</option>
-							<option value="Hardness">Total Hardness (50 - 300 ppm CaCO3)</option>
-							<option value="Free Chlorine">Free Residual Chlorine (0.2 - 2.0 ppm)</option>
-							<option value="Iron">Iron (Fe) (0.01 - 0.10 ppm)</option>
-							<option value="Silica">Silica (SiO2) (5.0 - 30.0 ppm)</option>
-							<option value="Turbidity">Turbidity (0.1 - 1.0 NTU)</option>
-							<option value="custom">-- Custom Parameter --</option>
-						</select>
-					</div>
-
-					<div class="grid grid-cols-2 gap-2">
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Parameter Name *</label>
-							<input
-								type="text"
-								v-model="newReading.parameter_name"
-								placeholder="e.g. Phosphate (PO4)"
-								required
-								class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-							/>
-						</div>
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Unit of Measure *</label>
-							<input
-								type="text"
-								v-model="newReading.unit"
-								placeholder="e.g. ppm, pH, µS/cm"
-								required
-								class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-							/>
-						</div>
-					</div>
-
-					<div class="grid grid-cols-3 gap-2">
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Min Range</label>
-							<input
-								type="number"
-								step="0.01"
-								v-model="newReading.min_range"
-								placeholder="0"
-								class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-							/>
-						</div>
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Max Range</label>
-							<input
-								type="number"
-								step="0.01"
-								v-model="newReading.max_range"
-								placeholder="100"
-								class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-							/>
-						</div>
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Measured *</label>
-							<input
-								type="number"
-								step="0.01"
-								v-model="newReading.reading_value"
-								placeholder="Value"
-								required
-								class="w-full px-3 py-2 text-xs font-bold rounded-xl border border-sky-300 bg-sky-50/30"
-							/>
-						</div>
-					</div>
-
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Remarks</label>
-						<input
-							type="text"
-							v-model="newReading.remarks"
-							placeholder="Optional observation"
-							class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-						/>
-					</div>
-
-					<div class="flex justify-end gap-2 pt-2">
-						<Button variant="subtle" theme="gray" size="sm" @click="showAddReadingModal = false">
-							Cancel
-						</Button>
-						<Button variant="solid" theme="blue" size="sm" type="submit">
-							Add Test Parameter
-						</Button>
-					</div>
-				</form>
-			</template>
-		</Dialog>
-
-		<!-- ========================================== -->
-		<!-- MODAL 2: ADD DEFECT FINDING                -->
-		<!-- ========================================== -->
-		<Dialog
-			:options="{ title: 'Log Equipment Defect Finding', size: 'md' }"
-			v-model="showAddFindingModal"
-		>
-			<template #body-content>
-				<form @submit.prevent="handleAddFindingSubmit" class="space-y-3 pt-2">
-					<div class="grid grid-cols-2 gap-2">
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Category *</label>
-							<select
-								v-model="newFinding.category"
-								class="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50"
-							>
-								<option value="Scaling">Scaling & Precipitation</option>
-								<option value="Corrosion">Corrosion & Rust</option>
-								<option value="Biological">Biological Fouling</option>
-								<option value="System Leakage">System Leakage</option>
-								<option value="Mechanical Breakdown">Mechanical Breakdown</option>
-								<option value="Sensor / Electrical">Sensor / Electrical Fault</option>
-							</select>
-						</div>
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Severity *</label>
-							<select
-								v-model="newFinding.severity"
-								class="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50"
-							>
-								<option value="Critical">Critical</option>
-								<option value="Major">Major</option>
-								<option value="Minor">Minor</option>
-								<option value="Info">Info</option>
-							</select>
-						</div>
-					</div>
-
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Defect Observation *</label>
-						<textarea
-							v-model="newFinding.observation"
-							rows="3"
-							placeholder="Describe specific defect, location, and operating symptom observed..."
-							required
-							class="w-full p-2.5 text-xs rounded-xl border border-slate-200"
-						></textarea>
-					</div>
-
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Recommended Action</label>
-						<input
-							type="text"
-							v-model="newFinding.recommendation"
-							placeholder="e.g. Schedule chemical descaling and replace O-ring seal"
-							class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-						/>
-					</div>
-
-					<div class="flex justify-end gap-2 pt-2">
-						<Button variant="subtle" theme="gray" size="sm" @click="showAddFindingModal = false">
-							Cancel
-						</Button>
-						<Button variant="solid" theme="blue" size="sm" type="submit">
-							Save Defect Finding
-						</Button>
-					</div>
-				</form>
-			</template>
-		</Dialog>
-
-		<!-- ========================================== -->
-		<!-- MODAL 3: ADD CHEMICAL & SPARES REQUISITION -->
-		<!-- ========================================== -->
-		<Dialog
-			:options="{ title: 'Request Chemical or Spare Part', size: 'md' }"
-			v-model="showAddRequirementModal"
-		>
-			<template #body-content>
-				<form @submit.prevent="handleAddRequirementSubmit" class="space-y-3 pt-2">
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Item / Chemical Code *</label>
-						<select
-							v-model="newRequirement.preset"
-							@change="applyRequirementPreset"
-							class="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50 mb-1.5"
-						>
-							<option value="CHEM-CW102">Anti-Scalant Polymer CW-102 (Drums)</option>
-							<option value="CHEM-CW301">Non-Oxidizing Biocide CW-301 (Drums)</option>
-							<option value="CHEM-CW204">Oxygen Scavenger CW-204 (Drums)</option>
-							<option value="EQ-RO-8040">RO Membrane Element 8040 (Nos)</option>
-							<option value="EQ-FLT-05">5-Micron Cartridge Filter 40" (Nos)</option>
-							<option value="EQ-PUMP-P1">Chemical Dosing Pump Seal Kit (Sets)</option>
-							<option value="custom">-- Custom Part / Code --</option>
-						</select>
-						<input
-							type="text"
-							v-model="newRequirement.item_name"
-							placeholder="Item / Chemical name"
-							required
-							class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-						/>
-					</div>
-
-					<div class="grid grid-cols-3 gap-2">
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Qty *</label>
-							<input
-								type="number"
-								step="1"
-								min="1"
-								v-model="newRequirement.quantity"
-								required
-								class="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200"
-							/>
-						</div>
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">UOM</label>
-							<select
-								v-model="newRequirement.uom"
-								class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-							>
-								<option value="Drums">Drums</option>
-								<option value="Kg">Kg</option>
-								<option value="Liters">Liters</option>
-								<option value="Nos">Nos</option>
-								<option value="Sets">Sets</option>
-							</select>
-						</div>
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Urgency</label>
-							<select
-								v-model="newRequirement.urgency"
-								class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50"
-							>
-								<option value="Normal">Normal</option>
-								<option value="Urgent">Urgent</option>
-								<option value="Emergency">Emergency</option>
-							</select>
-						</div>
-					</div>
-
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Purpose / Reason *</label>
-						<input
-							type="text"
-							v-model="newRequirement.reason"
-							placeholder="e.g. Chemical stock low; replenishment required"
-							required
-							class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-						/>
-					</div>
-
-					<div class="flex justify-end gap-2 pt-2">
-						<Button variant="subtle" theme="gray" size="sm" @click="showAddRequirementModal = false">
-							Cancel
-						</Button>
-						<Button variant="solid" theme="blue" size="sm" type="submit">
-							Save Requisition
-						</Button>
-					</div>
-				</form>
-			</template>
-		</Dialog>
-
-		<!-- ========================================== -->
-		<!-- MODAL 4: ADD ON-SITE EXPENSE               -->
-		<!-- ========================================== -->
-		<Dialog
-			:options="{ title: 'Add Field Expense', size: 'sm' }"
-			v-model="showAddExpenseModal"
-		>
-			<template #body-content>
-				<form @submit.prevent="handleAddExpenseSubmit" class="space-y-3 pt-2">
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Expense Type *</label>
-						<select
-							v-model="newExpense.expense_type"
-							class="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50"
-						>
-							<option value="Fuel">Fuel / Diesel</option>
-							<option value="Travel / Transportation">Travel / Transportation / Tolls</option>
-							<option value="Meals">Meals / Subsistence</option>
-							<option value="Materials / Hardware">Emergency Hardware / Consumables</option>
-							<option value="Lodging">Lodging</option>
-							<option value="Other">Other</option>
-						</select>
-					</div>
-
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Amount (EGP) *</label>
-						<input
-							type="number"
-							step="0.01"
-							v-model="newExpense.amount"
-							placeholder="0.00 EGP"
-							required
-							class="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200"
-						/>
-					</div>
-
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Remarks / Note</label>
-						<input
-							type="text"
-							v-model="newExpense.remarks"
-							placeholder="e.g. Highway toll and refueling"
-							class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-						/>
-					</div>
-
-					<div class="flex justify-end gap-2 pt-2">
-						<Button variant="subtle" theme="gray" size="sm" @click="showAddExpenseModal = false">
-							Cancel
-						</Button>
-						<Button variant="solid" theme="blue" size="sm" type="submit">
-							Save Expense
-						</Button>
-					</div>
-				</form>
-			</template>
-		</Dialog>
-
-		<!-- ========================================== -->
-		<!-- MODAL: ADD WORKING STEP / OPERATION        -->
-		<!-- ========================================== -->
-		<Dialog
-			:options="{ title: 'Add Working Step / Operation', size: 'md' }"
-			v-model="showAddOperationModal"
-		>
-			<template #body-content>
-				<form @submit.prevent="handleAddOperationSubmit" class="space-y-3 pt-2">
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Operation Type *</label>
-						<select
-							v-model="newOperation.operation_type"
-							class="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50"
-							required
-						>
-							<option value="Acid Descaling">Acid Descaling (Dissolving scale & hardness)</option>
-							<option value="Alkaline Boilout / Degreasing">Alkaline Boilout / Degreasing (Oils & organic cleaning)</option>
-							<option value="Basin Pressure Washing">Basin Pressure Washing (Cooling tower / sump wash)</option>
-							<option value="Biocide Shock Dosing">Biocide Shock Dosing (Microbiological slug dose)</option>
-							<option value="System Blowdown & Flush">System Blowdown & Flush (Conductivity reset & drain)</option>
-							<option value="Membrane Cleaning (CIP)">Membrane Cleaning (CIP) (RO clean-in-place)</option>
-							<option value="Filter Backwash & Media Flush">Filter Backwash & Media Flush (Sand / Multimedia filter)</option>
-							<option value="Dosing Pump Priming & Calibration">Dosing Pump Priming & Calibration</option>
-							<option value="General Preventive Maintenance">General Preventive Maintenance</option>
-						</select>
-					</div>
-
-					<div class="grid grid-cols-2 gap-2">
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Area / Equipment Unit *</label>
-							<input
-								type="text"
-								v-model="newOperation.area_or_equipment"
-								placeholder="e.g. RO Unit 01, Cooling Tower A"
-								required
-								class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-							/>
-						</div>
-						<div>
-							<label class="block text-xs font-bold text-slate-700 mb-1">Duration (Minutes)</label>
-							<input
-								type="number"
-								min="5"
-								step="5"
-								v-model="newOperation.duration_minutes"
-								placeholder="30"
-								class="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200"
-							/>
-						</div>
-					</div>
-
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Chemicals & Dosing Agents Used</label>
-						<input
-							type="text"
-							v-model="newOperation.chemicals_used"
-							placeholder="e.g. Scale Inhibitor CW-300 20L, Sodium Bisulfite 5kg"
-							class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-						/>
-					</div>
-
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Execution Outcome *</label>
-						<select
-							v-model="newOperation.outcome"
-							class="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50"
-							required
-						>
-							<option value="Successful">Successful</option>
-							<option value="Partially Successful">Partially Successful</option>
-							<option value="Incomplete">Incomplete</option>
-							<option value="Failed">Failed</option>
-						</select>
-					</div>
-
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Operational Remarks</label>
-						<textarea
-							v-model="newOperation.remarks"
-							rows="2"
-							placeholder="Notes on differential pressure drop, water clarity after blowdown, pump response..."
-							class="w-full p-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50"
-						></textarea>
-					</div>
-
-					<div class="flex justify-end gap-2 pt-2">
-						<Button variant="subtle" theme="gray" size="sm" @click="showAddOperationModal = false">
-							Cancel
-						</Button>
-						<Button variant="solid" theme="blue" size="sm" type="submit">
-							Save Working Step
-						</Button>
-					</div>
-				</form>
-			</template>
-		</Dialog>
-
-		<!-- ========================================== -->
-		<!-- MODAL 5: ADD CUSTOM CHECKLIST ITEM         -->
-		<!-- ========================================== -->
-		<Dialog
-			:options="{ title: 'Add Custom Checkpoint', size: 'sm' }"
-			v-model="showAddChecklistModal"
-		>
-			<template #body-content>
-				<form @submit.prevent="handleAddChecklistSubmit" class="space-y-3 pt-2">
-					<div>
-						<label class="block text-xs font-bold text-slate-700 mb-1">Checkpoint Description *</label>
-						<input
-							type="text"
-							v-model="newChecklistItem"
-							placeholder="e.g. Inspect membrane vessel end-caps for brine weeping"
-							required
-							class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200"
-						/>
-					</div>
-
-					<div class="flex justify-end gap-2 pt-2">
-						<Button variant="subtle" theme="gray" size="sm" @click="showAddChecklistModal = false">
-							Cancel
-						</Button>
-						<Button variant="solid" theme="blue" size="sm" type="submit">
-							Add Checkpoint
-						</Button>
-					</div>
-				</form>
-			</template>
-		</Dialog>
-	</div>
-
-	<!-- Loading State -->
-	<div v-else class="p-16 text-center text-slate-500">
-		<FeatherIcon name="loader" class="w-8 h-8 animate-spin mx-auto mb-2 text-sky-600" />
-		<p class="text-xs font-semibold">Loading inspection details...</p>
-	</div>
-</template>
-
 <script setup>
-import { ref, reactive, computed, onMounted } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { Button, FeatherIcon, Dialog } from "frappe-ui";
-import StatusBadge from "@/components/StatusBadge.vue";
-import ReadingRow from "@/components/ReadingRow.vue";
-import ChecklistItem from "@/components/ChecklistItem.vue";
-import SignaturePad from "@/components/SignaturePad.vue";
-import { visitsData } from "@/data/visits";
+import { Building2, CircleAlert, Clock, FileText, History, Info, MapPin, Navigation, Phone, Play, RotateCw } from "@lucide/vue";
+import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 
-const route = useRoute();
+import EmptyState from "@/components/EmptyState.vue";
+import PageHeader from "@/components/PageHeader.vue";
+import Pill from "@/components/Pill.vue";
+import StartSheet from "@/components/StartSheet.vue";
+import SyncChip from "@/components/SyncChip.vue";
+import { call } from "@/lib/api";
+import { directionsUrl, vibrate } from "@/lib/device";
+import { dateTimeLabel, dayLabel, distanceLabel, durationLabel, GEOFENCE_TONE, PRIORITY_TONE, STATUS, timeLabel } from "@/lib/format";
+import { hasCoordinates } from "@/lib/rules";
+import { isLocalId } from "@/stores/outbox";
+import { session } from "@/stores/session";
+import { toastError } from "@/stores/ui";
+import { clearServerError, hasUnsynced, openVisit, refreshVisit, startVisit, visits } from "@/stores/visits";
+
+const props = defineProps({ name: { type: String, required: true } });
 const router = useRouter();
 
-const visitId = computed(() => route.params.id);
-const visit = ref(null);
-const isLoading = ref(true);
-const isSaving = ref(false);
-const saveFeedback = ref("");
-const isCheckingIn = ref(false);
-const isSubmitting = ref(false);
+const record = computed(() => visits.records[props.name]);
+const data = computed(() => record.value?.data);
+const loadError = ref("");
+const refreshing = ref(false);
+const startOpen = ref(false);
+const starting = ref(false);
+const history = ref(null);
 
-const activeTab = ref("overview");
-const currentDistance = ref(null);
-const geofenceReason = ref("");
-const customerSignerName = ref("");
-const customerSignerPhone = ref("");
-const sigPad = ref(null);
+const status = computed(() => STATUS[data.value?.visit_status] || { label: data.value?.visit_status, tone: "muted" });
+const site = computed(() => data.value?.site);
+const canNavigate = computed(() => site.value && hasCoordinates(site.value.latitude, site.value.longitude));
+const unsynced = computed(() => hasUnsynced(props.name));
 
-// Modal visibility flags
-const showAddReadingModal = ref(false);
-const showAddFindingModal = ref(false);
-const showAddRequirementModal = ref(false);
-const showAddExpenseModal = ref(false);
-const showAddChecklistModal = ref(false);
-const showAddOperationModal = ref(false);
-
-// New item forms
-const newOperation = reactive({
-	operation_type: "System Blowdown & Flush",
-	area_or_equipment: "RO Unit 01",
-	duration_minutes: 30,
-	chemicals_used: "",
-	outcome: "Successful",
-	remarks: "",
+const action = computed(() => {
+	switch (data.value?.visit_status) {
+		case "Planned":
+			return { label: "Start visit", icon: Play, run: () => (startOpen.value = true) };
+		case "In Progress":
+			return { label: "Continue visit", icon: Play, run: openRun };
+		case "Correction Required":
+			return { label: "Fix and resubmit", icon: Play, run: openRun };
+		default:
+			return { label: "View what was recorded", icon: FileText, run: openRun, quiet: true };
+	}
 });
 
-const newReading = reactive({
-	preset: "pH",
-	parameter: "pH",
-	parameter_name: "pH Level",
-	unit: "pH",
-	min_range: 6.5,
-	max_range: 8.5,
-	reading_value: "",
-	remarks: "",
-});
-
-const newFinding = reactive({
-	category: "Scaling",
-	severity: "Major",
-	observation: "",
-	recommendation: "",
-});
-
-const newRequirement = reactive({
-	preset: "CHEM-CW102",
-	item_code: "CHEM-CW102",
-	item_name: "Anti-Scalant Polymer CW-102",
-	quantity: 1,
-	uom: "Drums",
-	urgency: "Normal",
-	reason: "Regular chemical replenishment",
-});
-
-const newExpense = reactive({
-	expense_type: "Fuel",
-	amount: "",
-	remarks: "",
-});
-
-const newChecklistItem = ref("");
-
-// Computed site and coordinates (Egyptian site default)
-const siteDetails = computed(() => visit.value?.site_details || {});
-const targetLat = computed(() => siteDetails.value?.latitude || 29.9725);
-const targetLng = computed(() => siteDetails.value?.longitude || 30.9415);
-const allowedRadius = computed(() => siteDetails.value?.geofence_radius_meters || 250);
-
-// Badges & Counters
-const completedChecklistCount = computed(() => {
-	if (!visit.value?.checklist_items) return 0;
-	return visit.value.checklist_items.filter((i) => (i.response || i.status) && (i.response || i.status) !== "Pending").length;
-});
-
-const outOfRangeCount = computed(() => {
-	if (!visit.value?.readings) return 0;
-	return visit.value.readings.filter((r) => {
-		const val = parseFloat(r.reading_value);
-		if (isNaN(val) || r.reading_value === "") return false;
-		const min = r.min_range != null ? r.min_range : r.min_value;
-		const max = r.max_range != null ? r.max_range : r.max_value;
-		if (min != null && val < min) return true;
-		if (max != null && val > max) return true;
-		return false;
-	}).length;
-});
-
-const totalExpenses = computed(() => {
-	if (!visit.value?.expenses) return 0;
-	return visit.value.expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-});
-
-// Dynamic Tab List with Badges
-const tabs = computed(() => [
-	{ id: "overview", label: "Overview", icon: "file-text" },
-	{ id: "geofence", label: "GPS Check-In", icon: "map-pin" },
-	{ id: "readings", label: "Water Tests", icon: "activity", badge: outOfRangeCount.value },
-	{ id: "checklist", label: "Checklist", icon: "check-square", badge: completedChecklistCount.value },
-	{ id: "operations", label: "Working Steps", icon: "tool", badge: visit.value?.operations?.length || 0 },
-	{ id: "findings", label: "Findings", icon: "alert-triangle", badge: visit.value?.findings?.length || 0 },
-	{ id: "requirements", label: "Requests & Spares", icon: "box", badge: visit.value?.requirements?.length || 0 },
-	{ id: "submit", label: "Expenses & Sign", icon: "dollar-sign" },
-]);
-
-function handleAddOperationSubmit() {
-	if (!newOperation.area_or_equipment.trim()) return;
-	if (!visit.value.operations) visit.value.operations = [];
-	visit.value.operations.push({
-		operation_type: newOperation.operation_type,
-		area_or_equipment: newOperation.area_or_equipment.trim(),
-		duration_minutes: parseInt(newOperation.duration_minutes) || 30,
-		chemicals_used: newOperation.chemicals_used.trim(),
-		outcome: newOperation.outcome,
-		remarks: newOperation.remarks.trim(),
-	});
-	newOperation.chemicals_used = "";
-	newOperation.remarks = "";
-	showAddOperationModal.value = false;
-	saveCurrentDraft(true);
+function openRun() {
+	router.push({ name: "visit-run", params: { name: props.name } });
 }
 
-function removeOperation(idx) {
-	visit.value.operations.splice(idx, 1);
-	saveCurrentDraft(true);
-}
-
-// Switch Tab with silent auto-save
-function switchTab(tabId) {
-	saveCurrentDraft(true);
-	activeTab.value = tabId;
-}
-
-// Save Draft Action
-async function saveCurrentDraft(silent = false) {
-	if (!visit.value) return;
-	isSaving.value = true;
-	if (!silent) saveFeedback.value = "Saving...";
+async function confirmStart({ position, reason }) {
+	starting.value = true;
 	try {
-		await visitsData.saveDraft(visit.value.name, {
-			checklist_items: visit.value.checklist_items || [],
-			readings: visit.value.readings || [],
-			findings: visit.value.findings || [],
-			requirements: visit.value.requirements || [],
-			expenses: visit.value.expenses || [],
-			operations: visit.value.operations || [],
-			executive_summary: visit.value.executive_summary || "",
-			customer_representative: customerSignerName.value || visit.value.customer_representative || "",
-			customer_representative_phone: customerSignerPhone.value || visit.value.customer_representative_phone || "",
-		});
-		if (!silent) {
-			saveFeedback.value = "Saved ✓";
-			setTimeout(() => { saveFeedback.value = ""; }, 2500);
-		}
-	} catch (e) {
-		if (!silent) {
-			saveFeedback.value = "Saved locally ✓";
-			setTimeout(() => { saveFeedback.value = ""; }, 2500);
-		}
+		await startVisit(props.name, { position, reason });
+		vibrate(15);
+		startOpen.value = false;
+		openRun();
+	} catch (error) {
+		toastError(error, "The visit could not be started.");
 	} finally {
-		isSaving.value = false;
+		starting.value = false;
 	}
 }
 
-// GPS Check-In with Haversine Distance
-async function handleCheckIn() {
-	isCheckingIn.value = true;
+async function refresh() {
+	if (unsynced.value) return;
+	refreshing.value = true;
 	try {
-		let coords = { latitude: targetLat.value, longitude: targetLng.value, accuracy: 10 };
-		if (navigator.geolocation) {
-			try {
-				const pos = await new Promise((resolve, reject) => {
-					navigator.geolocation.getCurrentPosition(resolve, reject, {
-						enableHighAccuracy: true,
-						timeout: 8000,
-						maximumAge: 0,
-					});
-				});
-				coords = {
-					latitude: pos.coords.latitude,
-					longitude: pos.coords.longitude,
-					accuracy: pos.coords.accuracy,
-				};
-			} catch (_) {}
-		}
-
-		// Calculate distance to target site
-		const dist = haversineDistance(coords.latitude, coords.longitude, targetLat.value, targetLng.value);
-		currentDistance.value = dist;
-
-		await visitsData.checkIn(visit.value.name, coords, geofenceReason.value);
-		visit.value.visit_status = "In Progress";
-		visit.value.geofence_status = "Verified";
-		visit.value.checkin_time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-		saveFeedback.value = "Check-in verified!";
-		setTimeout(() => { saveFeedback.value = ""; }, 3000);
-		activeTab.value = "readings";
-	} catch (err) {
-		alert("Check-In saved locally for sync.");
-		activeTab.value = "readings";
+		await refreshVisit(props.name);
+	} catch (error) {
+		if (!error.network) toastError(error);
 	} finally {
-		isCheckingIn.value = false;
+		refreshing.value = false;
 	}
 }
 
-function haversineDistance(lat1, lon1, lat2, lon2) {
-	const R = 6371000;
-	const dLat = ((lat2 - lat1) * Math.PI) / 180;
-	const dLon = ((lon2 - lon1) * Math.PI) / 180;
-	const a =
-		Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-		Math.cos((lat1 * Math.PI) / 180) *
-			Math.cos((lat2 * Math.PI) / 180) *
-			Math.sin(dLon / 2) *
-			Math.sin(dLon / 2);
-	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-	return R * c;
-}
-
-// Readings Modal Handlers
-function openAddReadingModal() {
-	newReading.preset = "pH";
-	applyReadingPreset();
-	newReading.reading_value = "";
-	newReading.remarks = "";
-	showAddReadingModal.value = true;
-}
-
-function applyReadingPreset() {
-	const presets = {
-		pH: { parameter: "pH", parameter_name: "pH Level", unit: "pH", min_range: 6.5, max_range: 8.5 },
-		TDS: { parameter: "TDS", parameter_name: "Total Dissolved Solids", unit: "ppm", min_range: 100, max_range: 1000 },
-		Conductivity: { parameter: "Conductivity", parameter_name: "Electrical Conductivity", unit: "µS/cm", min_range: 200, max_range: 1500 },
-		Hardness: { parameter: "Hardness", parameter_name: "Total Hardness", unit: "ppm CaCO3", min_range: 50, max_range: 300 },
-		"Free Chlorine": { parameter: "Free Chlorine", parameter_name: "Free Residual Chlorine", unit: "ppm", min_range: 0.2, max_range: 2.0 },
-		Iron: { parameter: "Iron", parameter_name: "Total Iron (Fe)", unit: "ppm", min_range: 0.01, max_range: 0.10 },
-		Silica: { parameter: "Silica", parameter_name: "Reactive Silica (SiO2)", unit: "ppm", min_range: 5.0, max_range: 30.0 },
-		Turbidity: { parameter: "Turbidity", parameter_name: "Turbidity", unit: "NTU", min_range: 0.1, max_range: 1.0 },
-	};
-	if (presets[newReading.preset]) {
-		Object.assign(newReading, presets[newReading.preset]);
-	}
-}
-
-function handleAddReadingSubmit() {
-	if (!visit.value.readings) visit.value.readings = [];
-	const isWarn =
-		(newReading.min_range != null && parseFloat(newReading.reading_value) < newReading.min_range) ||
-		(newReading.max_range != null && parseFloat(newReading.reading_value) > newReading.max_range);
-
-	visit.value.readings.push({
-		parameter: newReading.parameter || newReading.parameter_name,
-		parameter_name: newReading.parameter_name,
-		unit: newReading.unit,
-		min_range: newReading.min_range,
-		max_range: newReading.max_range,
-		min_value: newReading.min_range,
-		max_value: newReading.max_range,
-		reading_value: String(newReading.reading_value),
-		status: isWarn ? "Warning" : "Normal",
-		remarks: newReading.remarks || "",
-	});
-	showAddReadingModal.value = false;
-	saveCurrentDraft(true);
-}
-
-function removeReading(idx) {
-	visit.value.readings.splice(idx, 1);
-	saveCurrentDraft(true);
-}
-
-// Checklist Modal Handlers
-function handleAddChecklistSubmit() {
-	if (!newChecklistItem.value.trim()) return;
-	if (!visit.value.checklist_items) visit.value.checklist_items = [];
-	visit.value.checklist_items.push({
-		checklist_item: newChecklistItem.value.trim(),
-		response: "Pass",
-		status: "Pass",
-		is_mandatory: 0,
-		remarks: "",
-	});
-	newChecklistItem.value = "";
-	showAddChecklistModal.value = false;
-	saveCurrentDraft(true);
-}
-
-function removeChecklistItem(idx) {
-	visit.value.checklist_items.splice(idx, 1);
-	saveCurrentDraft(true);
-}
-
-// Findings Modal Handlers
-function handleAddFindingSubmit() {
-	if (!newFinding.observation.trim()) return;
-	if (!visit.value.findings) visit.value.findings = [];
-	visit.value.findings.push({
-		category: newFinding.category,
-		severity: newFinding.severity,
-		observation: newFinding.observation.trim(),
-		recommendation: newFinding.recommendation.trim(),
-	});
-	newFinding.observation = "";
-	newFinding.recommendation = "";
-	showAddFindingModal.value = false;
-	saveCurrentDraft(true);
-}
-
-function removeFinding(idx) {
-	visit.value.findings.splice(idx, 1);
-	saveCurrentDraft(true);
-}
-
-// Requirements Modal Handlers
-function applyRequirementPreset() {
-	const presets = {
-		"CHEM-CW102": { item_code: "CHEM-CW102", item_name: "Anti-Scalant Polymer CW-102", uom: "Drums" },
-		"CHEM-CW301": { item_code: "CHEM-CW301", item_name: "Non-Oxidizing Biocide CW-301", uom: "Drums" },
-		"CHEM-CW204": { item_code: "CHEM-CW204", item_name: "Oxygen Scavenger CW-204", uom: "Drums" },
-		"EQ-RO-8040": { item_code: "EQ-RO-8040", item_name: "RO Membrane Element 8040", uom: "Nos" },
-		"EQ-FLT-05": { item_code: "EQ-FLT-05", item_name: "5-Micron Cartridge Filter 40\"", uom: "Nos" },
-		"EQ-PUMP-P1": { item_code: "EQ-PUMP-P1", item_name: "Chemical Dosing Pump Seal Kit", uom: "Sets" },
-	};
-	if (presets[newRequirement.preset]) {
-		Object.assign(newRequirement, presets[newRequirement.preset]);
-	}
-}
-
-function handleAddRequirementSubmit() {
-	if (!newRequirement.item_name.trim()) return;
-	if (!visit.value.requirements) visit.value.requirements = [];
-	visit.value.requirements.push({
-		item_code: newRequirement.item_code || newRequirement.item_name,
-		item_name: newRequirement.item_name.trim(),
-		quantity: parseFloat(newRequirement.quantity) || 1,
-		uom: newRequirement.uom,
-		urgency: newRequirement.urgency,
-		reason: newRequirement.reason.trim(),
-	});
-	showAddRequirementModal.value = false;
-	saveCurrentDraft(true);
-}
-
-function removeRequirement(idx) {
-	visit.value.requirements.splice(idx, 1);
-	saveCurrentDraft(true);
-}
-
-// Expense Handlers
-function handleAddExpenseSubmit() {
-	if (!newExpense.amount) return;
-	if (!visit.value.expenses) visit.value.expenses = [];
-	visit.value.expenses.push({
-		expense_type: newExpense.expense_type,
-		amount: parseFloat(newExpense.amount) || 0,
-		remarks: newExpense.remarks.trim(),
-	});
-	newExpense.amount = "";
-	newExpense.remarks = "";
-	showAddExpenseModal.value = false;
-	saveCurrentDraft(true);
-}
-
-function removeExpense(idx) {
-	visit.value.expenses.splice(idx, 1);
-	saveCurrentDraft(true);
-}
-
-// Final Technical Report Submission
-async function handleSubmitReport() {
-	if (!customerSignerName.value.trim()) {
-		alert("Please enter the Customer Signatory Name before submitting.");
-		return;
-	}
-
-	const confirmed = confirm(
-		`Submit completed Technical Service Report for ${visit.value.customer_name || visit.value.customer}?\n\nThis will stamp checkout time, finalize inspection parameters, and lock the document for review.`
-	);
-	if (!confirmed) return;
-
-	isSubmitting.value = true;
+async function loadHistory() {
+	if (!session.online || isLocalId(props.name)) return;
 	try {
-		const sigData = sigPad.value ? sigPad.value.toDataURL() : null;
-
-		let checkoutCoords = { latitude: targetLat.value, longitude: targetLng.value, accuracy: 10 };
-		if (navigator.geolocation) {
-			try {
-				const pos = await new Promise((res, rej) =>
-					navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000, enableHighAccuracy: true })
-				);
-				checkoutCoords = {
-					latitude: pos.coords.latitude,
-					longitude: pos.coords.longitude,
-					accuracy: pos.coords.accuracy,
-				};
-			} catch (_) {}
-		}
-
-		await visitsData.submitVisit(visit.value.name, {
-			readings: visit.value.readings || [],
-			checklist_items: visit.value.checklist_items || [],
-			findings: visit.value.findings || [],
-			requirements: visit.value.requirements || [],
-			expenses: visit.value.expenses || [],
-			operations: visit.value.operations || [],
-			outcome: visit.value.outcome || "Resolved",
-			executive_summary: visit.value.executive_summary || "Water quality inspection completed.",
-			customer_rep: customerSignerName.value.trim(),
-			customer_signature: sigData,
-			latitude: checkoutCoords.latitude,
-			longitude: checkoutCoords.longitude,
-			accuracy: checkoutCoords.accuracy,
-		});
-
-		alert("Technical Service Report submitted successfully! Record locked for review.");
-		router.push("/visits");
-	} catch (err) {
-		alert("Report queued offline for sync once connection is restored.");
-		router.push("/visits");
-	} finally {
-		isSubmitting.value = false;
+		history.value = await call("cw_visit.api.v1.site_history", { name: props.name, limit: 5 });
+	} catch {
+		history.value = null;
 	}
 }
 
 onMounted(async () => {
 	try {
-		isLoading.value = true;
-		visit.value = await visitsData.getVisitDetails(visitId.value);
-		if (visit.value?.customer_representative) {
-			customerSignerName.value = visit.value.customer_representative;
-		}
-		if (visit.value?.customer_representative_phone) {
-			customerSignerPhone.value = visit.value.customer_representative_phone;
-		}
-	} catch (e) {
-		console.error("Error loading visit:", e);
-	} finally {
-		isLoading.value = false;
+		await openVisit(props.name);
+	} catch (error) {
+		loadError.value = error.network ? "This visit is not saved on this phone. Connect to the internet to open it." : error.message;
+		return;
 	}
+	loadHistory();
 });
 </script>
 
-<style scoped>
-.no-scrollbar::-webkit-scrollbar {
-	display: none;
-}
-.no-scrollbar {
-	-ms-overflow-style: none;
-	scrollbar-width: none;
-}
-</style>
+<template>
+	<div class="flex h-full flex-col">
+		<PageHeader back :fallback="{ name: 'visits' }" :title="data?.customer_name || 'Visit'" :subtitle="isLocalId(name) ? 'Not synced yet' : name">
+			<template #actions>
+				<SyncChip />
+				<button v-if="!unsynced" type="button" class="icon-btn" aria-label="Refresh" :disabled="refreshing" @click="refresh">
+					<RotateCw :size="20" :class="refreshing ? 'spin' : ''" aria-hidden="true" />
+				</button>
+			</template>
+		</PageHeader>
+
+		<div class="scroll-area min-h-0 flex-1">
+			<div class="mx-auto max-w-xl space-y-4 px-4 pb-8 pt-4">
+				<EmptyState v-if="loadError" :icon="CircleAlert" title="Cannot open this visit" :text="loadError">
+					<button type="button" class="btn-secondary" @click="router.replace({ name: 'visits' })">Back to visits</button>
+				</EmptyState>
+
+				<div v-else-if="!data" class="space-y-3" aria-busy="true">
+					<div class="skeleton h-32"></div>
+					<div class="skeleton h-40"></div>
+				</div>
+
+				<template v-else>
+					<div v-if="record.serverError" class="rounded-card p-4 tone-bad" role="alert">
+						<p class="font-bold">The server did not accept the last change</p>
+						<p class="mt-1 whitespace-pre-line text-sm font-medium">{{ record.serverError }}</p>
+						<button type="button" class="mt-2 min-h-[44px] text-sm font-bold underline" @click="clearServerError(name)">Dismiss</button>
+					</div>
+
+					<!-- Supervisor's feedback comes first when the visit was sent back. -->
+					<div v-if="data.visit_status === 'Correction Required' || data.visit_status === 'Rejected'" class="rounded-card p-4 tone-bad">
+						<p class="font-bold">{{ data.visit_status === "Rejected" ? "Rejected by your supervisor" : "Your supervisor asked for a correction" }}</p>
+						<p v-if="data.supervisor_remarks" class="mt-1 whitespace-pre-line font-medium">{{ data.supervisor_remarks }}</p>
+					</div>
+
+					<!-- Summary -->
+					<section class="card p-5">
+						<div class="flex flex-wrap items-center gap-1.5">
+							<Pill :tone="status.tone" dot>{{ status.label }}</Pill>
+							<Pill :tone="PRIORITY_TONE[data.priority] || 'muted'">{{ data.priority }} priority</Pill>
+							<Pill v-if="data.creation_source === 'Engineer On-Site'" tone="muted">Logged on site</Pill>
+						</div>
+						<h2 class="mt-3 text-xl font-extrabold text-ink">{{ data.visit_type }}</h2>
+						<p class="mt-1 flex items-center gap-1.5 font-medium text-ink-2">
+							<Clock :size="16" class="text-ink-3" aria-hidden="true" />
+							{{ dayLabel(data.planned_date) }}
+							<template v-if="data.planned_start_time">
+								· {{ timeLabel(data.planned_start_time) }}<template v-if="data.planned_end_time"> to {{ timeLabel(data.planned_end_time) }}</template>
+							</template>
+						</p>
+						<p v-if="data.description" class="mt-3 whitespace-pre-line text-ink">{{ data.description }}</p>
+					</section>
+
+					<!-- Site -->
+					<section v-if="site" class="card p-5" aria-labelledby="visit-site">
+						<h2 id="visit-site" class="section-title px-0">Site</h2>
+						<p class="flex items-start gap-2 font-bold text-ink">
+							<Building2 :size="18" class="mt-0.5 shrink-0 text-ink-3" aria-hidden="true" />
+							{{ site.location_name }}
+						</p>
+						<p v-if="site.address_display" class="mt-1 flex items-start gap-2 text-ink-2">
+							<MapPin :size="18" class="mt-0.5 shrink-0 text-ink-3" aria-hidden="true" />
+							<span class="whitespace-pre-line">{{ site.address_display }}</span>
+						</p>
+						<p v-if="site.operating_hours" class="mt-1 pl-[26px] text-sm text-ink-2">Open: {{ site.operating_hours }}</p>
+						<p v-if="site.verification_status === 'Pending Verification'" class="mt-3 rounded-control px-3 py-2 text-sm font-semibold tone-warn">
+							This site's location is waiting for a supervisor to confirm it.
+						</p>
+
+						<div class="mt-4 grid grid-cols-2 gap-3">
+							<a v-if="canNavigate" :href="directionsUrl(site.latitude, site.longitude)" target="_blank" rel="noopener" class="btn-secondary">
+								<Navigation :size="18" aria-hidden="true" />
+								Directions
+							</a>
+							<a v-if="site.primary_contact_phone" :href="`tel:${site.primary_contact_phone}`" class="btn-secondary">
+								<Phone :size="18" aria-hidden="true" />
+								Call {{ (site.primary_contact_person || "contact").split(" ")[0] }}
+							</a>
+						</div>
+
+						<div v-if="site.special_site_instructions" class="mt-4 rounded-control p-3 tone-info">
+							<p class="flex items-center gap-1.5 text-sm font-bold">
+								<Info :size="16" aria-hidden="true" />
+								Site instructions
+							</p>
+							<p class="mt-1 whitespace-pre-line text-sm font-medium">{{ site.special_site_instructions }}</p>
+						</div>
+					</section>
+
+					<!-- Linked request -->
+					<section v-if="data.request" class="card p-5" aria-labelledby="visit-request">
+						<h2 id="visit-request" class="section-title px-0">Service request {{ data.request.name }}</h2>
+						<p class="whitespace-pre-line text-ink">{{ data.request.issue_description }}</p>
+						<p v-if="data.request.response_due_date" class="mt-2 text-sm font-semibold" :class="data.request.sla_breached ? 'text-bad' : 'text-ink-2'">
+							Response due {{ dateTimeLabel(data.request.response_due_date) }}<template v-if="data.request.sla_breached"> (overdue)</template>
+						</p>
+					</section>
+
+					<!-- Check-in evidence -->
+					<section v-if="data.checkin_time" class="card p-5" aria-labelledby="visit-checkin">
+						<h2 id="visit-checkin" class="section-title px-0">On site</h2>
+						<dl class="space-y-2 text-ink">
+							<div class="flex justify-between gap-3">
+								<dt class="text-ink-2">Checked in</dt>
+								<dd class="font-semibold">{{ dateTimeLabel(data.checkin_time) }}</dd>
+							</div>
+							<div class="flex items-center justify-between gap-3">
+								<dt class="text-ink-2">Location check</dt>
+								<dd>
+									<Pill :tone="GEOFENCE_TONE[data.geofence_status] || 'muted'" dot>
+										{{ data.geofence_status }}<template v-if="data.distance_to_site_meters != null && data.checkin_latitude"> · {{ distanceLabel(data.distance_to_site_meters) }}</template>
+									</Pill>
+								</dd>
+							</div>
+							<div v-if="data.geofence_reason" class="text-sm text-ink-2">Reason given: {{ data.geofence_reason }}</div>
+							<div v-if="data.checkout_time" class="flex justify-between gap-3">
+								<dt class="text-ink-2">Checked out</dt>
+								<dd class="font-semibold">{{ dateTimeLabel(data.checkout_time) }}</dd>
+							</div>
+							<div v-if="data.visit_duration_minutes" class="flex justify-between gap-3">
+								<dt class="text-ink-2">Time on site</dt>
+								<dd class="font-semibold">{{ durationLabel(data.visit_duration_minutes) }}</dd>
+							</div>
+						</dl>
+					</section>
+
+					<!-- Site history -->
+					<section v-if="history?.length" aria-labelledby="visit-history">
+						<h2 id="visit-history" class="section-title flex items-center gap-1.5">
+							<History :size="14" aria-hidden="true" />
+							Previous visits to this site
+						</h2>
+						<ul class="card divide-y divide-line">
+							<li v-for="item in history" :key="item.name" class="px-4 py-3">
+								<div class="flex items-center justify-between gap-3">
+									<p class="font-semibold text-ink">{{ dayLabel(item.planned_date) }} · {{ item.visit_type }}</p>
+									<Pill tone="muted">{{ item.outcome }}</Pill>
+								</div>
+								<p v-if="item.readings?.length" class="mt-1 text-sm text-ink-2">
+									<span v-for="(reading, position) in item.readings.slice(0, 4)" :key="position" class="numeric">
+										<template v-if="position"> · </template>{{ reading.parameter_name }} {{ reading.reading_value }}{{ reading.unit ? " " + reading.unit : "" }}
+									</span>
+								</p>
+							</li>
+						</ul>
+					</section>
+				</template>
+			</div>
+		</div>
+
+		<footer v-if="data" class="z-10 shrink-0 bg-surface px-4 pb-[calc(theme(spacing.safe-bottom)+12px)] pt-3 shadow-bar">
+			<div class="mx-auto max-w-xl">
+				<button type="button" class="btn-block min-h-[56px] text-lg" :class="action.quiet ? 'btn-secondary' : 'btn-primary'" @click="action.run">
+					<component :is="action.icon" :size="20" aria-hidden="true" />
+					{{ action.label }}
+				</button>
+			</div>
+		</footer>
+
+		<StartSheet :open="startOpen" :site="site" :busy="starting" @close="startOpen = false" @confirm="confirmStart" />
+	</div>
+</template>

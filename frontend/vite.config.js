@@ -1,90 +1,146 @@
-import { defineConfig } from "vite";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import vue from "@vitejs/plugin-vue";
+import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
-import path from "path";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const here = path.dirname(fileURLToPath(import.meta.url));
 
-export default defineConfig(({ command, mode }) => {
-	const isFrappe = process.argv.some((arg) => arg.includes("/assets/cw_field_service_pwa"));
-	const startUrl = isFrappe ? "/cw_field_service_pwa" : "/";
-	const icon192 = isFrappe
-		? "/assets/cw_field_service_pwa/manifest/manifest-icon-192.maskable.png"
-		: "/manifest/manifest-icon-192.maskable.png";
-	const icon512 = isFrappe
-		? "/assets/cw_field_service_pwa/manifest/manifest-icon-512.maskable.png"
-		: "/manifest/manifest-icon-512.maskable.png";
+/**
+ * Two build targets from one codebase:
+ *
+ *   frappe      Served by ERPNext at /cw. Assets under /assets/cw_pwa/frontend/,
+ *               index.html copied to cw_pwa/www/cw.html. This is the default.
+ *   standalone  A static bundle for a separate host (for example Vercel at
+ *               app.cw-eg.com) that reverse-proxies /api and /files to ERPNext, so
+ *               the browser still talks to one origin and session cookies work.
+ */
+const TARGETS = {
+	frappe: {
+		base: "/assets/cw_pwa/frontend/",
+		outDir: "../cw_pwa/public/frontend",
+		appBase: "/cw",
+		swUrl: "/cw/sw.js",
+		icons: "/assets/cw_pwa/manifest",
+	},
+	standalone: {
+		base: "/",
+		outDir: "../dist",
+		appBase: "",
+		swUrl: "/sw.js",
+		icons: "/manifest",
+	},
+};
+
+export default defineConfig(({ mode }) => {
+	const target = TARGETS[mode] || TARGETS.frappe;
+	const scope = target.appBase || "/";
 
 	return {
-		root: __dirname,
-		server: {
-			port: 8080,
-			proxy: getProxyOptions(),
+		root: here,
+		base: target.base,
+		publicDir: false,
+		define: {
+			__APP_BASE__: JSON.stringify(target.appBase),
+			__SW_URL__: JSON.stringify(target.swUrl),
+			__ICONS__: JSON.stringify(target.icons),
+			__APP_VERSION__: JSON.stringify(process.env.npm_package_version || "dev"),
 		},
 		plugins: [
 			vue(),
+			{
+				name: "cw-icons",
+				transformIndexHtml: (html) => html.replaceAll("%ICONS%", target.icons),
+				// The icons are committed once, in the Frappe app, where ERPNext serves them
+				// from /assets. The standalone bundle has no such folder, so it carries a copy.
+				generateBundle() {
+					if (mode !== "standalone") return;
+					const folder = path.resolve(here, "../cw_pwa/public/manifest");
+					for (const file of fs.readdirSync(folder)) {
+						this.emitFile({ type: "asset", fileName: `manifest/${file}`, source: fs.readFileSync(path.join(folder, file)) });
+					}
+				},
+			},
 			VitePWA({
-				registerType: "autoUpdate",
 				strategies: "injectManifest",
-				srcDir: "public",
+				srcDir: "src",
 				filename: "sw.js",
-				injectRegister: null,
+				// Registered by src/lib/pwa.js, which owns the update lifecycle.
+				injectRegister: false,
+				devOptions: { enabled: false },
+				injectManifest: {
+					globPatterns: ["**/*.{js,css,html,woff2,png,svg}"],
+					// Precache URLs must be absolute: the worker is served from the app
+					// path, not from the folder its assets live in.
+					modifyURLPrefix: { "": target.base },
+				},
 				manifest: {
+					id: scope,
+					name: "C-Water Visits",
+					short_name: "CW Visits",
+					description: "Site visits, inspections and service reports for C-Water field engineers.",
+					start_url: scope,
+					scope,
 					display: "standalone",
-					name: "C-Water Field Service",
-					short_name: "CW Service",
-					start_url: startUrl,
-					scope: "/",
-					description: "C-Water Mobile Field Service & Water Inspection PWA",
-					theme_color: "#0284c7",
-					background_color: "#f8fafc",
+					orientation: "portrait-primary",
+					background_color: "#F3F7F9",
+					theme_color: "#0097B2",
+					lang: "en",
+					dir: "ltr",
+					categories: ["business", "productivity"],
 					icons: [
+						{ src: `${target.icons}/icon-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+						{ src: `${target.icons}/icon-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+						{ src: `${target.icons}/icon-192.maskable.png`, sizes: "192x192", type: "image/png", purpose: "maskable" },
+						{ src: `${target.icons}/icon-512.maskable.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
+					],
+					shortcuts: [
 						{
-							src: icon192,
-							sizes: "192x192",
-							type: "image/png",
-							purpose: "any maskable",
-						},
-						{
-							src: icon512,
-							sizes: "512x512",
-							type: "image/png",
-							purpose: "any maskable",
+							name: "My visits",
+							url: `${target.appBase}/visits`,
+							icons: [{ src: `${target.icons}/icon-192.png`, sizes: "192x192" }],
 						},
 					],
 				},
 			}),
 		],
-		resolve: {
-			alias: {
-				"@": path.resolve(__dirname, "src"),
+		resolve: { alias: { "@": path.resolve(here, "src") } },
+		server: {
+			port: 8080,
+			allowedHosts: true,
+			proxy: {
+				"^/(api|assets|files|private)": {
+					target: `http://127.0.0.1:${benchPort()}`,
+					ws: true,
+					// Route by Host so a multi-site bench answers for the right site.
+					router: (req) => `http://${(req.headers.host || "127.0.0.1").split(":")[0]}:${benchPort()}`,
+				},
 			},
 		},
 		build: {
-			outDir: process.env.BUILD_OUT_DIR || "../cw_field_service_pwa/public/frontend",
+			outDir: target.outDir,
 			emptyOutDir: true,
 			target: "es2020",
-			sourcemap: true,
-			rollupOptions: {
-				output: {
-					manualChunks: {
-						"frappe-ui": ["frappe-ui"],
-						"ionic": ["@ionic/vue", "@ionic/vue-router"],
-					},
-				},
-			},
+			sourcemap: false,
+			chunkSizeWarningLimit: 400,
 		},
 	};
 });
 
-function getProxyOptions() {
-	return {
-		"^/(app|login|api|assets|files|private)": {
-			target: "http://127.0.0.1:8000",
-			ws: true,
-			changeOrigin: true,
-		},
-	};
+function benchPort() {
+	let dir = here;
+	for (let depth = 0; depth < 8; depth++) {
+		const config = path.join(dir, "sites", "common_site_config.json");
+		if (fs.existsSync(config)) {
+			try {
+				return JSON.parse(fs.readFileSync(config, "utf8")).webserver_port || 8000;
+			} catch {
+				return 8000;
+			}
+		}
+		dir = path.resolve(dir, "..");
+	}
+	return 8000;
 }
