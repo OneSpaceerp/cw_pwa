@@ -9,8 +9,8 @@ import { CacheableResponsePlugin } from "workbox-cacheable-response";
 import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
 import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from "workbox-precaching";
-import { registerRoute, setDefaultHandler } from "workbox-routing";
-import { CacheFirst, NetworkOnly } from "workbox-strategies";
+import { registerRoute } from "workbox-routing";
+import { CacheFirst } from "workbox-strategies";
 
 const SHELL_CACHE = "cw-shell";
 const FILES_CACHE = "cw-files";
@@ -29,9 +29,11 @@ const precachedIndex = precacheEntries
 precacheAndRoute(precacheEntries);
 cleanupOutdatedCaches();
 
-// The API (including login and logout) always goes to the network, untouched.
-registerRoute(({ url }) => url.pathname.startsWith("/api/"), new NetworkOnly());
-registerRoute(({ url }) => url.pathname.startsWith("/api/"), new NetworkOnly(), "POST");
+// The API (including login and logout) is deliberately NOT routed here. With no
+// matching route the worker does not touch the request and the browser sends it
+// itself. Re-sending it from the worker is not equivalent on iOS: Safari drops the
+// body of a multipart upload that passes through a service worker, so photo
+// uploads arrived at the server empty.
 
 // Evidence photos. Private files are fetched with the session cookie, and the
 // whole cache is dropped on logout (see src/lib/pwa.js).
@@ -73,8 +75,6 @@ registerRoute(
 		}
 	}
 );
-
-setDefaultHandler(new NetworkOnly());
 
 function withTimeout(promise, ms) {
 	return new Promise((resolve, reject) => {
