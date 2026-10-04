@@ -52,7 +52,7 @@ onBeforeUnmount(release);
 					<div class="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-line" aria-hidden="true"></div>
 					<header class="flex shrink-0 items-center justify-between gap-3 px-5 pb-2 pt-3">
 						<h2 class="text-lg font-bold text-ink">{{ title }}</h2>
-						<button v-if="dismissible" type="button" class="icon-btn -mr-2" aria-label="Close" @click="close">
+						<button v-if="dismissible" type="button" class="icon-btn -me-2" aria-label="Close" @click="close">
 							<X :size="22" aria-hidden="true" />
 						</button>
 					</header>

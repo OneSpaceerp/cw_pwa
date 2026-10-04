@@ -12,6 +12,8 @@
 import { LoaderCircle, Search, Trash2 } from "@lucide/vue";
 import { reactive, ref, watch } from "vue";
 
+import { t } from "@/lib/i18n";
+
 import BottomSheet from "./BottomSheet.vue";
 
 const props = defineProps({
@@ -54,7 +56,7 @@ function runLookup(field) {
 			lookup.results = await field.search(query);
 		} catch (error) {
 			lookup.results = [];
-			lookup.error = error.network ? "Search needs a connection. Type the name below instead." : error.message;
+			lookup.error = error.network ? t("Search needs a connection. Type the name below instead.") : error.message;
 		} finally {
 			lookup.busy = false;
 		}
@@ -72,10 +74,10 @@ function save() {
 	for (const field of props.fields) {
 		const value = form[field.key];
 		const empty = value === undefined || value === null || String(value).trim() === "";
-		if (field.required && empty) errors[field.key] = `${field.label} is required.`;
-		else if (field.type === "number" && !empty && !Number.isFinite(Number(value))) errors[field.key] = "Enter a number.";
+		if (field.required && empty) errors[field.key] = t("{field} is required.", { field: t(field.label) });
+		else if (field.type === "number" && !empty && !Number.isFinite(Number(value))) errors[field.key] = t("Enter a number.");
 		else if (field.type === "number" && !empty && field.min !== undefined && Number(value) < field.min) {
-			errors[field.key] = `Must be at least ${field.min}.`;
+			errors[field.key] = t("Must be at least {min}.", { min: field.min });
 		}
 	}
 	if (Object.keys(errors).length) {
@@ -145,17 +147,17 @@ function save() {
 
 				<div v-else-if="field.type === 'lookup'">
 					<div class="relative">
-						<Search :size="18" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+						<Search :size="18" class="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
 						<input
 							:id="`fs-${field.key}`"
 							v-model="lookup.query"
 							type="search"
-							class="field pl-10"
+							class="field ps-10"
 							:placeholder="field.placeholder"
 							autocomplete="off"
 							@input="runLookup(field)"
 						/>
-						<LoaderCircle v-if="lookup.busy" :size="18" class="spin absolute right-3.5 top-1/2 -mt-[9px] text-ink-3" aria-hidden="true" />
+						<LoaderCircle v-if="lookup.busy" :size="18" class="spin absolute end-3.5 top-1/2 -mt-[9px] text-ink-3" aria-hidden="true" />
 					</div>
 					<p v-if="form[field.key]" class="mt-2 flex items-center justify-between gap-2 rounded-control px-3 py-2 text-sm font-semibold tone-brand">
 						<span class="truncate">Linked to stock item {{ form[field.key] }}</span>
@@ -163,7 +165,7 @@ function save() {
 					</p>
 					<ul v-if="lookup.results.length" class="mt-2 divide-y divide-line overflow-hidden rounded-control border border-line">
 						<li v-for="result in lookup.results" :key="result.label + result.sub">
-							<button type="button" class="block min-h-[48px] w-full px-4 py-2 text-left active:bg-sunken" @click="pick(result)">
+							<button type="button" class="block min-h-[48px] w-full px-4 py-2 text-start active:bg-sunken" @click="pick(result)">
 								<span class="block font-semibold text-ink">{{ result.label }}</span>
 								<span class="block text-sm text-ink-3">{{ result.sub }}</span>
 							</button>
@@ -177,14 +179,14 @@ function save() {
 						:id="`fs-${field.key}`"
 						v-model="form[field.key]"
 						class="field"
-						:class="field.unit ? 'pr-16' : ''"
+						:class="field.unit ? 'pe-16' : ''"
 						:type="field.type === 'date' ? 'date' : 'text'"
 						:inputmode="field.type === 'number' ? 'decimal' : undefined"
 						:placeholder="field.placeholder"
 						:aria-invalid="Boolean(errors[field.key])"
 						autocomplete="off"
 					/>
-					<span v-if="field.unit" class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-3">
+					<span v-if="field.unit" class="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-3">
 						{{ field.unit }}
 					</span>
 				</div>

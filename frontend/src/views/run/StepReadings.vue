@@ -119,7 +119,7 @@ function remove(row) {
 				<div class="mt-3 flex items-center gap-2">
 					<div class="relative flex-1">
 						<input
-							class="field numeric pr-20 text-xl font-bold"
+							class="field numeric pe-20 text-xl font-bold"
 							:value="row.reading_value"
 							:inputmode="['Float', 'Int'].includes(master(row).data_type || 'Float') ? 'decimal' : 'text'"
 							placeholder="Value"
@@ -128,7 +128,7 @@ function remove(row) {
 							enterkeyhint="next"
 							@input="update(row, 'reading_value', $event.target.value)"
 						/>
-						<span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-3">{{ row.unit }}</span>
+						<span class="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink-3">{{ row.unit }}</span>
 					</div>
 					<button v-if="!readonly" type="button" class="icon-btn text-bad" :aria-label="`Remove ${row.parameter_name || row.parameter}`" @click="remove(row)">
 						<Trash2 :size="20" aria-hidden="true" />
@@ -170,7 +170,7 @@ function remove(row) {
 				<h3 class="section-title">{{ category }}</h3>
 				<ul class="divide-y divide-line overflow-hidden rounded-control border border-line">
 					<li v-for="item in items" :key="item.name">
-						<button type="button" class="flex min-h-[52px] w-full items-center justify-between gap-3 px-4 py-2 text-left active:bg-sunken" @click="add(item)">
+						<button type="button" class="flex min-h-[52px] w-full items-center justify-between gap-3 px-4 py-2 text-start active:bg-sunken" @click="add(item)">
 							<span class="font-semibold text-ink">{{ item.parameter_name }}</span>
 							<span class="shrink-0 text-sm text-ink-3">{{ item.unit }}</span>
 						</button>

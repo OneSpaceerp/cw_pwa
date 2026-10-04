@@ -3,6 +3,7 @@ import { Camera, CircleAlert, CloudUpload, FileText, Image as ImageIcon, Trash2 
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 
 import { options } from "@/stores/masters";
+import { t } from "@/lib/i18n";
 import { settings } from "@/stores/session";
 import { confirm, toast, toastError } from "@/stores/ui";
 import { addPhoto, localPhotoUrl, photoCount, removePhoto } from "@/stores/visits";
@@ -70,7 +71,7 @@ async function onFiles(event) {
 		for (const file of files) {
 			// Photos are compressed before the size check; other files are checked as they are.
 			if (!file.type.startsWith("image/") && file.size > limit) {
-				toast(`${file.name} is larger than ${settings().max_evidence_file_size_mb || 10} MB.`, "bad");
+				toast(t("{file} is larger than {size} MB.", { file: file.name, size: settings().max_evidence_file_size_mb || 10 }), "bad");
 				continue;
 			}
 			await addPhoto(props.record.name, file, { category: category.value });
@@ -83,7 +84,7 @@ async function onFiles(event) {
 }
 
 async function remove(photo) {
-	if (await confirm({ title: "Remove this photo?", confirmLabel: "Remove", danger: true })) {
+	if (await confirm({ title: t("Remove this photo?"), confirmLabel: t("Remove"), cancelLabel: t("Cancel"), danger: true })) {
 		await removePhoto(props.record.name, photo);
 	}
 }
@@ -131,11 +132,11 @@ async function remove(photo) {
 						<FileText :size="36" aria-hidden="true" />
 					</div>
 
-					<span v-if="photo.failed" class="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold tone-bad">
+					<span v-if="photo.failed" class="absolute start-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold tone-bad">
 						<CircleAlert :size="12" aria-hidden="true" />
 						Upload failed
 					</span>
-					<span v-else-if="photo.local" class="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold tone-warn">
+					<span v-else-if="photo.local" class="absolute start-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold tone-warn">
 						<CloudUpload :size="12" aria-hidden="true" />
 						Waiting
 					</span>
@@ -143,7 +144,7 @@ async function remove(photo) {
 					<button
 						v-if="!readonly"
 						type="button"
-						class="absolute right-1.5 top-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white"
+						class="absolute end-1.5 top-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white"
 						aria-label="Remove photo"
 						@click="remove(photo)"
 					>

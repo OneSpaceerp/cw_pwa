@@ -4,6 +4,7 @@ import { computed, reactive, ref } from "vue";
 
 import SignaturePad from "@/components/SignaturePad.vue";
 import { getPosition, vibrate } from "@/lib/device";
+import { t } from "@/lib/i18n";
 import { OUTCOMES_NEEDING_SUMMARY, reviewBlockers } from "@/lib/rules";
 import { options } from "@/stores/masters";
 import { session, settings } from "@/stores/session";
@@ -63,7 +64,7 @@ async function submit() {
 
 	// Check-out position. Its absence never blocks a submission: the server records
 	// the check-out without coordinates and the supervisor sees that.
-	stage.value = "Getting your location";
+	stage.value = t("Getting your location");
 	let position = null;
 	try {
 		position = await getPosition({ timeout: 10000 });
@@ -71,7 +72,7 @@ async function submit() {
 		position = null;
 	}
 
-	stage.value = "Saving";
+	stage.value = t("Saving");
 	try {
 		await submitVisit(props.record.name, {
 			outcome: form.outcome,
@@ -83,7 +84,7 @@ async function submit() {
 		});
 		vibrate([12, 60, 12]);
 		toast(
-			session.online ? "Visit sent for review." : "Visit saved. It will be sent for review when you are back online.",
+			session.online ? t("Visit sent for review.") : t("Visit saved. It will be sent for review when you are back online."),
 			"ok"
 		);
 		emit("submitted");
@@ -159,11 +160,11 @@ async function submit() {
 		<div v-if="blockers.length" class="rounded-card border border-line p-4 tone-warn" role="status">
 			<p class="flex items-center gap-2 font-bold">
 				<CircleAlert :size="18" aria-hidden="true" />
-				{{ blockers.length }} thing{{ blockers.length === 1 ? "" : "s" }} to finish before submitting
+				{{ t("{count} thing(s) to finish before submitting", { count: blockers.length }) }}
 			</p>
 			<ul class="mt-2 space-y-1">
 				<li v-for="(item, index) in blockers" :key="index">
-					<button type="button" class="min-h-[44px] w-full text-left text-sm font-semibold underline decoration-dotted underline-offset-4" @click="emit('goto', item.step)">
+					<button type="button" class="min-h-[44px] w-full text-start text-sm font-semibold underline decoration-dotted underline-offset-4" @click="emit('goto', item.step)">
 						{{ item.text }}
 					</button>
 				</li>

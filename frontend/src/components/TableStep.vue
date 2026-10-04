@@ -4,6 +4,7 @@ import { ChevronRight, Plus } from "@lucide/vue";
 import { computed, ref } from "vue";
 
 import { uuid } from "@/lib/device";
+import { t } from "@/lib/i18n";
 import { edit } from "@/stores/visits";
 
 import FormSheet from "./FormSheet.vue";
@@ -62,12 +63,12 @@ function remove() {
 			</h2>
 		</div>
 
-		<ul v-if="rows.length" class="card divide-y divide-line overflow-hidden">
+		<ul v-if="rows.length" class="card-outline divide-y divide-line overflow-hidden">
 			<li v-for="row in rows" :key="row._key">
 				<component
 					:is="readonly ? 'div' : 'button'"
 					:type="readonly ? undefined : 'button'"
-					class="flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left"
+					class="flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-start"
 					:class="readonly ? '' : 'active:bg-sunken'"
 					@click="open(row)"
 				>
@@ -84,12 +85,12 @@ function remove() {
 
 		<button v-if="!readonly" type="button" class="btn-secondary btn-block mt-3" @click="open()">
 			<Plus :size="20" aria-hidden="true" />
-			Add {{ noun }}
+			{{ t("Add {noun}", { noun: t(noun) }) }}
 		</button>
 
 		<FormSheet
 			:open="sheetOpen"
-			:title="editing ? `Edit ${noun}` : `Add ${noun}`"
+			:title="editing ? t('Edit {noun}', { noun: t(noun) }) : t('Add {noun}', { noun: t(noun) })"
 			:fields="fields"
 			:row="editing"
 			:defaults="defaults"

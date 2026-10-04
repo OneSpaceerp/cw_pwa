@@ -1,8 +1,9 @@
 <script setup>
-import { Eye, EyeOff, LoaderCircle } from "@lucide/vue";
+import { Eye, EyeOff, Globe, LoaderCircle, Lock, User } from "@lucide/vue";
 import { ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import { i18n, LANGUAGES, setLanguage, t } from "@/lib/i18n";
 import { canUseApp, login, session } from "@/stores/session";
 import { loadDeviceData } from "@/stores/sync";
 
@@ -16,6 +17,8 @@ const busy = ref(false);
 const error = ref("");
 const icon = `${__ICONS__}/icon-192.png`;
 
+const otherLanguage = () => LANGUAGES.find((item) => item.code !== i18n.lang);
+
 async function submit() {
 	if (busy.value) return;
 	error.value = "";
@@ -27,10 +30,10 @@ async function submit() {
 		router.replace(next);
 	} catch (cause) {
 		error.value = cause.network
-			? "Cannot reach the server. Check your connection and try again."
+			? t("Cannot reach the server. Check your connection and try again.")
 			: cause.status === 401
-				? "The email or password is not correct."
-				: cause.message || "Sign-in failed.";
+				? t("The email or password is not correct.")
+				: cause.message || t("Sign-in failed.");
 	} finally {
 		busy.value = false;
 	}
@@ -39,49 +42,63 @@ async function submit() {
 
 <template>
 	<div class="scroll-area h-full bg-surface">
-		<div class="mx-auto flex min-h-full max-w-md flex-col px-6 pb-[calc(theme(spacing.safe-bottom)+24px)] pt-[calc(theme(spacing.safe-top)+48px)]">
-			<div class="flex items-center gap-3">
-				<img :src="icon" alt="" width="56" height="56" class="h-14 w-14 rounded-2xl" />
-				<div>
-					<p class="text-sm font-bold uppercase tracking-wider text-brand-strong">C-Water</p>
-					<h1 class="text-2xl font-extrabold text-ink">Visits</h1>
-				</div>
+		<div class="mx-auto flex min-h-full max-w-md flex-col px-6 pb-[calc(theme(spacing.safe-bottom)+24px)] pt-[calc(theme(spacing.safe-top)+20px)]">
+			<div class="flex justify-end">
+				<button
+					type="button"
+					class="inline-flex min-h-[44px] items-center gap-1.5 rounded-full px-3 text-sm font-bold text-brand-strong active:bg-brand-soft"
+					@click="setLanguage(otherLanguage().code)"
+				>
+					<Globe :size="18" aria-hidden="true" />
+					{{ otherLanguage().label }}
+				</button>
 			</div>
 
-			<p class="mt-8 text-lg text-ink-2">Sign in with your ERPNext account to see your visits.</p>
+			<div class="mt-6 flex flex-col items-center text-center">
+				<img :src="icon" alt="" width="88" height="88" class="h-[88px] w-[88px] rounded-[26px] shadow-card" />
+				<p class="ltr mt-4 text-sm font-extrabold tracking-[0.2em] text-brand-strong">C-WATER</p>
+				<h1 class="mt-5 text-[28px] font-extrabold leading-tight text-ink">Let's sign you in</h1>
+				<p class="mt-1.5 text-ink-2">Use your ERPNext account to see your visits.</p>
+			</div>
 
-			<form class="mt-6 space-y-4" novalidate @submit.prevent="submit">
+			<form class="mt-8 space-y-4" novalidate @submit.prevent="submit">
 				<div>
-					<label class="field-label" for="login-user">Email or username</label>
-					<input
-						id="login-user"
-						v-model="username"
-						class="field"
-						type="text"
-						inputmode="email"
-						autocomplete="username"
-						autocapitalize="none"
-						autocorrect="off"
-						spellcheck="false"
-						required
-					/>
+					<label class="sr-only" for="login-user">Email or username</label>
+					<div class="relative">
+						<User :size="20" class="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+						<input
+							id="login-user"
+							v-model="username"
+							class="field min-h-[58px] ps-12"
+							type="text"
+							inputmode="email"
+							placeholder="Email or username"
+							autocomplete="username"
+							autocapitalize="none"
+							autocorrect="off"
+							spellcheck="false"
+							required
+						/>
+					</div>
 				</div>
 
 				<div>
-					<label class="field-label" for="login-password">Password</label>
+					<label class="sr-only" for="login-password">Password</label>
 					<div class="relative">
+						<Lock :size="20" class="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
 						<input
 							id="login-password"
 							v-model="password"
-							class="field pr-14"
+							class="field min-h-[58px] pe-14 ps-12"
 							:type="showPassword ? 'text' : 'password'"
+							placeholder="Password"
 							autocomplete="current-password"
 							required
 						/>
 						<button
 							type="button"
-							class="icon-btn absolute right-1 top-1/2 -translate-y-1/2"
-							:aria-label="showPassword ? 'Hide password' : 'Show password'"
+							class="icon-btn absolute end-1.5 top-1/2 -translate-y-1/2"
+							:aria-label="showPassword ? t('Hide password') : t('Show password')"
 							:aria-pressed="showPassword"
 							@click="showPassword = !showPassword"
 						>
@@ -95,9 +112,9 @@ async function submit() {
 					You are offline. Signing in needs a connection.
 				</p>
 
-				<button type="submit" class="btn-primary btn-block" :disabled="busy || !username || !password">
+				<button type="submit" class="btn-primary btn-block min-h-[58px] text-lg" :disabled="busy || !username || !password">
 					<LoaderCircle v-if="busy" :size="20" class="spin" aria-hidden="true" />
-					{{ busy ? "Signing in" : "Sign in" }}
+					{{ busy ? t("Signing in") : t("Sign in") }}
 				</button>
 			</form>
 

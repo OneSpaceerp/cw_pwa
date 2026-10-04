@@ -92,6 +92,49 @@ function withTimeout(promise, ms) {
 	});
 }
 
+// ----------------------------------------------------------- notifications
+// The server sends { title, body, url, tag }. Showing a notification for every
+// push is required by browsers (userVisibleOnly), so a malformed one still shows.
+self.addEventListener("push", (event) => {
+	let data = {};
+	try {
+		data = event.data?.json() || {};
+	} catch {
+		data = { title: event.data?.text() };
+	}
+	const scope = new URL(self.registration.scope);
+	const icons = scope.pathname.startsWith("/cw") ? "/assets/cw_pwa/manifest" : "/manifest";
+
+	event.waitUntil(
+		self.registration.showNotification(data.title || "C-Water Visits", {
+			body: data.body || "",
+			tag: data.tag || undefined,
+			icon: `${icons}/icon-192.png`,
+			badge: `${icons}/favicon-96.png`,
+			data: { url: data.url || scope.pathname },
+		})
+	);
+});
+
+// Tapping a notification brings the app forward on the visit it is about.
+self.addEventListener("notificationclick", (event) => {
+	event.notification.close();
+	const target = new URL(event.notification.data?.url || "/", self.location.origin).href;
+
+	event.waitUntil(
+		(async () => {
+			const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+			const open = windows.find((client) => client.url.startsWith(self.registration.scope));
+			if (open) {
+				await open.focus();
+				if ("navigate" in open) await open.navigate(target).catch(() => {});
+				return;
+			}
+			await self.clients.openWindow(target);
+		})()
+	);
+});
+
 // A new version waits until the app asks. Taking over mid-session would leave an
 // open page requesting chunks that the new precache no longer has.
 self.addEventListener("message", (event) => {

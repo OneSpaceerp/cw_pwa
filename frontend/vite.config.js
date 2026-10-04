@@ -6,6 +6,8 @@ import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+import { i18nExtract, translateTemplateText } from "./scripts/i18n-plugin.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 /**
@@ -49,7 +51,9 @@ export default defineConfig(({ mode }) => {
 			__APP_VERSION__: JSON.stringify(process.env.npm_package_version || "dev"),
 		},
 		plugins: [
-			vue(),
+			// Static template text is routed through $t() at compile time (see the plugin file).
+			vue({ template: { compilerOptions: { nodeTransforms: [translateTemplateText] } } }),
+			i18nExtract(path.resolve(here, "node_modules/.cw-i18n-strings.json")),
 			{
 				name: "cw-icons",
 				transformIndexHtml: (html) => html.replaceAll("%ICONS%", target.icons),
@@ -72,6 +76,7 @@ export default defineConfig(({ mode }) => {
 				devOptions: { enabled: false },
 				injectManifest: {
 					globPatterns: ["**/*.{js,css,html,woff2,png,svg}"],
+					globIgnores: ["**/splash-*.png"],
 					// Precache URLs must be absolute: the worker is served from the app
 					// path, not from the folder its assets live in.
 					modifyURLPrefix: { "": target.base },

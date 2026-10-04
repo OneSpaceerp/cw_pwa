@@ -1,4 +1,5 @@
 /** Display formatting. Server datetimes are "YYYY-MM-DD HH:MM:SS" in the site's time zone. */
+import { locale, t } from "./i18n";
 
 export function parseDate(value) {
 	if (!value) return null;
@@ -22,10 +23,10 @@ export function dayLabel(value) {
 	const date = parseDate(value);
 	if (!date) return "";
 	const days = Math.round((startOfDay(date) - startOfDay(new Date())) / 86400000);
-	if (days === 0) return "Today";
-	if (days === 1) return "Tomorrow";
-	if (days === -1) return "Yesterday";
-	return date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+	if (days === 0) return t("Today");
+	if (days === 1) return t("Tomorrow");
+	if (days === -1) return t("Yesterday");
+	return date.toLocaleDateString(locale(), { weekday: "short", day: "numeric", month: "short" });
 }
 
 /** "09:30" from a server time ("9:30:00") or datetime. */
@@ -35,13 +36,13 @@ export function timeLabel(value) {
 	const match = text.match(/(\d{1,2}):(\d{2})(?::\d{2})?(?:\.\d+)?$/);
 	if (match && !text.includes("-")) return `${match[1].padStart(2, "0")}:${match[2]}`;
 	const date = parseDate(value);
-	return date ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "";
+	return date ? date.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" }) : "";
 }
 
 export function dateTimeLabel(value) {
 	const date = parseDate(value);
 	if (!date) return "";
-	return `${dayLabel(date)}, ${timeLabel(date)}`;
+	return `${dayLabel(date)} ${timeLabel(date)}`;
 }
 
 /** "just now", "14 min ago", "3 h ago", then a date. */
@@ -49,22 +50,22 @@ export function ago(value) {
 	const date = typeof value === "number" ? new Date(value) : parseDate(value);
 	if (!date) return "";
 	const minutes = Math.round((Date.now() - date.getTime()) / 60000);
-	if (minutes < 1) return "just now";
-	if (minutes < 60) return `${minutes} min ago`;
-	if (minutes < 60 * 24) return `${Math.round(minutes / 60)} h ago`;
+	if (minutes < 1) return t("just now");
+	if (minutes < 60) return t("{n} min ago", { n: minutes });
+	if (minutes < 60 * 24) return t("{n} h ago", { n: Math.round(minutes / 60) });
 	return dayLabel(date);
 }
 
 export function durationLabel(minutes) {
 	const total = Math.round(Number(minutes) || 0);
-	if (total < 60) return `${total} min`;
-	return `${Math.floor(total / 60)} h ${String(total % 60).padStart(2, "0")} min`;
+	if (total < 60) return t("{n} min", { n: total });
+	return t("{h} h {m} min", { h: Math.floor(total / 60), m: String(total % 60).padStart(2, "0") });
 }
 
 export function distanceLabel(meters) {
 	if (meters === null || meters === undefined) return "";
 	const value = Number(meters);
-	return value < 1000 ? `${Math.round(value)} m` : `${(value / 1000).toFixed(1)} km`;
+	return value < 1000 ? t("{n} m", { n: Math.round(value) }) : t("{n} km", { n: (value / 1000).toFixed(1) });
 }
 
 export function initials(name) {

@@ -35,6 +35,7 @@ export default {
 			},
 			fontFamily: {
 				sans: [
+					// Arabic first: these only take effect for Arabic text, Latin falls through.
 					"-apple-system",
 					"BlinkMacSystemFont",
 					'"SF Pro Text"',
@@ -45,9 +46,9 @@ export default {
 					"sans-serif",
 				],
 			},
-			borderRadius: { card: "18px", control: "14px" },
+			borderRadius: { card: "24px", control: "16px" },
 			boxShadow: {
-				card: "0 1px 2px rgb(14 36 48 / 0.05), 0 6px 20px -12px rgb(14 36 48 / 0.18)",
+				card: "0 1px 2px rgb(14 36 48 / 0.04), 0 12px 32px -16px rgb(14 36 48 / 0.16)",
 				bar: "0 -1px 0 var(--line), 0 -10px 30px -18px rgb(14 36 48 / 0.25)",
 				fab: "0 10px 24px -8px rgb(0 122 145 / 0.6)",
 			},

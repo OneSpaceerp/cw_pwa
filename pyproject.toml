@@ -9,7 +9,10 @@ requires-python = ">=3.14,<3.15"
 readme = "README.md"
 license = { text = "MIT" }
 dynamic = ["version"]
-dependencies = []
+dependencies = [
+    # Web Push (VAPID) straight to the browser push services.
+    "pywebpush>=2.0.0",
+]
 
 [build-system]
 requires = ["flit_core >=3.4,<4"]

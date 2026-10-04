@@ -8,7 +8,8 @@ import PageHeader from "@/components/PageHeader.vue";
 import SyncChip from "@/components/SyncChip.vue";
 import TableStep from "@/components/TableStep.vue";
 import { call } from "@/lib/api";
-import { dayLabel, SEVERITY_TONE } from "@/lib/format";
+import { dayLabel, SEVERITY_TONE, STATUS } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { EDITABLE_STATUSES } from "@/lib/rules";
 import { catalogue, options } from "@/stores/masters";
 import { isLocalId } from "@/stores/outbox";
@@ -178,10 +179,10 @@ async function loadPrevious() {
 						:aria-current="position === index ? 'step' : undefined"
 						@click="goto(item.id)"
 					>
-						<span class="numeric mr-1 opacity-70">{{ position + 1 }}</span>{{ item.label }}
+						<span class="numeric me-1 opacity-70">{{ position + 1 }}</span>{{ item.label }}
 						<span
 							v-if="editable && stepDone[item.id] === false"
-							class="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-surface bg-warn"
+							class="absolute -end-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-surface bg-warn"
 						>
 							<span class="sr-only">has items to finish</span>
 						</span>
@@ -208,7 +209,7 @@ async function loadPrevious() {
 					</div>
 
 					<p v-if="!editable" class="mb-4 rounded-card px-4 py-3 text-sm font-semibold tone-info">
-						This visit is {{ record.data.visit_status.toLowerCase() }} and can no longer be changed.
+						{{ t("This visit is {status} and can no longer be changed.", { status: t((STATUS[record.data.visit_status] || {}).label || record.data.visit_status) }) }}
 					</p>
 
 					<StepChecklist v-if="current.id === 'checklist'" :record="record" :readonly="!editable" />
@@ -238,7 +239,7 @@ async function loadPrevious() {
 						empty-text="Record each operation you carried out on site."
 						:fields="operationFields"
 						:defaults="{ outcome: 'Successful', duration_minutes: 30 }"
-						:describe="(row) => ({ title: row.operation_type, subtitle: [row.area_or_equipment, row.duration_minutes ? row.duration_minutes + ' min' : ''].filter(Boolean).join(' · '), pill: { text: row.outcome, tone: row.outcome === 'Successful' ? 'ok' : 'warn' } })"
+						:describe="(row) => ({ title: row.operation_type, subtitle: [row.area_or_equipment, row.duration_minutes ? t('{n} min', { n: row.duration_minutes }) : ''].filter(Boolean).join(' · '), pill: { text: row.outcome, tone: row.outcome === 'Successful' ? 'ok' : 'warn' } })"
 						:readonly="!editable"
 					/>
 
@@ -271,7 +272,7 @@ async function loadPrevious() {
 							noun="follow-up"
 							empty-text="No follow-up needed."
 							:fields="actionFields"
-							:describe="(row) => ({ title: row.action_description, subtitle: row.due_date ? `Due ${dayLabel(row.due_date)}` : '', pill: row.status ? { text: row.status, tone: 'muted' } : null })"
+							:describe="(row) => ({ title: row.action_description, subtitle: row.due_date ? t('Due {date}', { date: dayLabel(row.due_date) }) : '', pill: row.status ? { text: row.status, tone: 'muted' } : null })"
 							:readonly="!editable"
 						/>
 					</div>
@@ -292,7 +293,7 @@ async function loadPrevious() {
 					<ChevronLeft :size="22" aria-hidden="true" />
 				</button>
 				<button v-if="index < steps.length - 1" type="button" class="btn-primary flex-1" @click="next">
-					Next: {{ steps[index + 1].label }}
+					{{ t("Next: {step}", { step: t(steps[index + 1].label) }) }}
 					<ChevronRight :size="20" aria-hidden="true" />
 				</button>
 				<button v-else type="button" class="btn-primary flex-1" @click="leave">Done</button>

@@ -3,6 +3,8 @@ import { reactive } from "vue";
 
 import { BOOT_METHOD, call, onSessionLost, post, setCsrfToken } from "@/lib/api";
 import * as db from "@/lib/db";
+import { initLanguage } from "@/lib/i18n";
+import { configurePush, subscribeToPush, unsubscribeFromPush } from "@/lib/permissions";
 import { purgeDeviceCaches } from "@/lib/pwa";
 
 const BOOT_KEY = "boot";
@@ -61,6 +63,11 @@ async function applyBoot(boot) {
 	}
 	await db.put("kv", publicBoot, BOOT_KEY);
 	session.boot = publicBoot;
+
+	initLanguage(publicBoot.language);
+	// Keep this phone registered for alerts. A no-op until notifications are allowed.
+	configurePush(publicBoot.push_public_key);
+	subscribeToPush();
 }
 
 export async function login(username, password) {
@@ -72,6 +79,8 @@ export async function login(username, password) {
 
 /** Sign out and remove this user's data from the device. */
 export async function logout() {
+	// While still signed in: stop alerts for this person reaching this phone.
+	await unsubscribeFromPush();
 	try {
 		await post("logout");
 	} catch {

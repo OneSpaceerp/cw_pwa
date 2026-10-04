@@ -14,44 +14,141 @@
 		<meta name="apple-mobile-web-app-title" content="CW Visits" />
 		<!-- "default" keeps iOS's own status bar strip, so the header never sits under the clock. -->
 		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-		<meta name="theme-color" content="#0097B2" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#0B1A22" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#13272F" media="(prefers-color-scheme: dark)" />
 		<meta name="format-detection" content="telephone=no" />
 
 		<link rel="icon" type="image/png" sizes="32x32" href="%ICONS%/favicon-32.png" />
 		<link rel="icon" type="image/png" sizes="96x96" href="%ICONS%/favicon-96.png" />
 		<link rel="apple-touch-icon" href="%ICONS%/apple-touch-icon-180.png" />
+		<!-- iPhone launch images, one per screen size (generated; portrait only). -->
+		<link rel="apple-touch-startup-image" href="%ICONS%/splash-1320x2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+		<link rel="apple-touch-startup-image" href="%ICONS%/splash-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+		<link rel="apple-touch-startup-image" href="%ICONS%/splash-1206x2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+		<link rel="apple-touch-startup-image" href="%ICONS%/splash-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+		<link rel="apple-touch-startup-image" href="%ICONS%/splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+		<link rel="apple-touch-startup-image" href="%ICONS%/splash-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+		<link rel="apple-touch-startup-image" href="%ICONS%/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+		<link rel="apple-touch-startup-image" href="%ICONS%/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+		<link rel="apple-touch-startup-image" href="%ICONS%/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
 
 		<style>
-			/* First paint, before the bundle arrives: match the app background so there is no flash. */
+			/* Launch screen. Drawn by the first HTML response, before any script loads,
+			   and kept above the app until it is ready (see hideSplash in src/main.js). */
 			html,
 			body {
 				margin: 0;
 				height: 100%;
 				background: #f3f7f9;
 			}
-			@media (prefers-color-scheme: dark) {
-				html,
-				body {
-					background: #0b1a22;
-				}
-			}
 			#boot-splash {
 				position: fixed;
 				inset: 0;
-				display: grid;
-				place-items: center;
+				z-index: 100;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 22px;
+				background: linear-gradient(160deg, #00a3bf 0%, #00788f 100%);
+				transition: opacity 0.4s ease, transform 0.4s ease;
 			}
-			#boot-splash img {
-				width: 84px;
-				height: 84px;
-				border-radius: 20px;
+			#boot-splash.is-leaving {
+				opacity: 0;
+				transform: scale(1.04);
+				pointer-events: none;
+			}
+			.splash-mark {
+				position: relative;
+				width: 132px;
+				height: 132px;
+			}
+			/* Ripples spreading from where the pin lands, like a drop on water. */
+			.splash-ripple {
+				position: absolute;
+				left: 50%;
+				bottom: 14px;
+				width: 46px;
+				height: 16px;
+				margin-left: -23px;
+				border: 2px solid rgba(255, 255, 255, 0.75);
+				border-radius: 50%;
+				opacity: 0;
+				animation: splash-ripple 1.9s ease-out 0.55s infinite;
+			}
+			.splash-ripple + .splash-ripple {
+				animation-delay: 1.2s;
+			}
+			.splash-pin {
+				position: absolute;
+				inset: 0;
+				animation: splash-drop 0.75s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+				transform-origin: 50% 88%;
+			}
+			.splash-dot {
+				transform-origin: 66px 50px;
+				animation: splash-pulse 1.9s ease-in-out 0.8s infinite;
+			}
+			.splash-name {
+				font: 800 22px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+				letter-spacing: 0.22em;
+				color: #fff;
+				opacity: 0;
+				animation: splash-rise 0.6s ease-out 0.5s both;
+			}
+			.splash-sub {
+				margin-top: -12px;
+				font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+				letter-spacing: 0.08em;
+				color: rgba(255, 255, 255, 0.82);
+				opacity: 0;
+				animation: splash-rise 0.6s ease-out 0.68s both;
+			}
+			@keyframes splash-drop {
+				0% { transform: translateY(-70px) scale(0.6); opacity: 0; }
+				60% { transform: translateY(0) scale(1.06, 0.94); opacity: 1; }
+				80% { transform: translateY(-6px) scale(0.98, 1.03); }
+				100% { transform: translateY(0) scale(1); opacity: 1; }
+			}
+			@keyframes splash-ripple {
+				0% { transform: scale(0.4); opacity: 0.9; }
+				100% { transform: scale(3.4); opacity: 0; }
+			}
+			@keyframes splash-pulse {
+				0%, 100% { transform: scale(1); }
+				50% { transform: scale(1.35); }
+			}
+			@keyframes splash-rise {
+				from { transform: translateY(10px); opacity: 0; }
+				to { transform: translateY(0); opacity: 1; }
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.splash-pin, .splash-dot, .splash-ripple, .splash-name, .splash-sub {
+					animation: none;
+					opacity: 1;
+				}
+				.splash-ripple { display: none; }
 			}
 		</style>
 	</head>
 	<body>
-		<div id="app">
-			<div id="boot-splash"><img src="%ICONS%/icon-192.png" alt="" /></div>
+		<div id="app"></div>
+
+		<div id="boot-splash" role="img" aria-label="C-Water Visits">
+			<div class="splash-mark">
+				<span class="splash-ripple"></span>
+				<span class="splash-ripple"></span>
+				<svg class="splash-pin" viewBox="0 0 132 132" aria-hidden="true">
+					<path
+						fill="#fff"
+						d="M66 14c-21 0-38 16.6-38 37.2 0 9.6 3.8 18 9.2 25.4L66 118l28.8-41.4c5.4-7.4 9.2-15.8 9.2-25.4C104 30.6 87 14 66 14Z"
+					/>
+					<circle cx="66" cy="50" r="20" fill="#00869f" />
+					<circle class="splash-dot" cx="66" cy="50" r="8.5" fill="#fff" />
+				</svg>
+			</div>
+			<div class="splash-name">C-WATER</div>
+			<div class="splash-sub">VISITS</div>
 		</div>
 
 		<script>

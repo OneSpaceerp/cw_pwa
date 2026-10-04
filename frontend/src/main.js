@@ -3,12 +3,16 @@ import "./style.css";
 import { createApp } from "vue";
 
 import App from "./App.vue";
+import { initLanguage, t } from "./lib/i18n";
 import { initPwa } from "./lib/pwa";
 import router from "./router";
 import { canUseApp, initSession, session } from "./stores/session";
+import { loadAlerts } from "./stores/alerts";
 import { loadDeviceData, syncNow } from "./stores/sync";
 
 const SYNC_INTERVAL_MS = 45000;
+const SPLASH_MIN_MS = 1400;
+const started = performance.now();
 
 trackKeyboard();
 
@@ -18,13 +22,42 @@ async function start() {
 
 	if (canUseApp()) await loadDeviceData();
 
-	createApp(App).use(router).mount("#app");
+	initLanguage(session.boot?.language);
+
+	const app = createApp(App);
+	// Compiled templates call $t() for every piece of static text.
+	app.config.globalProperties.$t = t;
+	app.use(router);
+	await router.isReady();
+	await hideSplash();
+	app.mount("#app");
 	initPwa();
 
 	// The outbox is flushed whenever there is a reason to believe it can get through.
 	window.addEventListener("online", syncNow);
 	document.addEventListener("visibilitychange", () => !document.hidden && syncNow());
-	setInterval(syncNow, SYNC_INTERVAL_MS);
+	setInterval(refresh, SYNC_INTERVAL_MS);
+}
+
+/** Sync, and pick up new alerts while the app is open. */
+function refresh() {
+	if (document.hidden) return;
+	syncNow();
+	if (canUseApp()) loadAlerts();
+}
+
+/**
+ * The launch animation plays in index.html before any JavaScript arrives. Let it
+ * finish its entrance, then fade it out as the app takes over.
+ */
+async function hideSplash() {
+	const splash = document.getElementById("boot-splash");
+	if (!splash) return;
+	const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+	const wait = reduced ? 0 : Math.max(0, SPLASH_MIN_MS - (performance.now() - started));
+	await new Promise((resolve) => setTimeout(resolve, wait));
+	splash.classList.add("is-leaving");
+	setTimeout(() => splash.remove(), 450);
 }
 
 /**

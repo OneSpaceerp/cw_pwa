@@ -5,6 +5,7 @@ import { onBeforeUnmount, onMounted } from "vue";
 import EmptyState from "@/components/EmptyState.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import { ago } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { alerts, loadAlerts, markAllRead } from "@/stores/alerts";
 
 // Subjects come from the server as HTML-capable text; show them as plain text only.
@@ -17,15 +18,15 @@ onBeforeUnmount(markAllRead);
 
 <template>
 	<div class="flex h-full flex-col">
-		<PageHeader title="Alerts" :subtitle="alerts.loadedAt ? `Updated ${ago(alerts.loadedAt)}` : ''" />
+		<PageHeader title="Alerts" :subtitle="alerts.loadedAt ? t('Updated {when}', { when: ago(alerts.loadedAt) }) : ''" />
 
 		<div class="scroll-area min-h-0 flex-1">
-			<div class="mx-auto max-w-xl px-4 pb-28 pt-4">
+			<div class="mx-auto max-w-xl px-4 pb-24 pt-4">
 				<div v-if="alerts.loading && !alerts.loadedAt" class="space-y-3" aria-busy="true">
 					<div v-for="n in 4" :key="n" class="skeleton h-16"></div>
 				</div>
 
-				<ul v-else-if="alerts.items.length" class="card divide-y divide-line">
+				<ul v-else-if="alerts.items.length" class="card-outline divide-y divide-line">
 					<li v-for="item in alerts.items" :key="item.name">
 						<component
 							:is="item.document_type === 'CW Site Visit' ? 'RouterLink' : 'div'"

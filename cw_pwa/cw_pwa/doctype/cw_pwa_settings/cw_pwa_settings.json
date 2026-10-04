@@ -1,0 +1,66 @@
+{
+ "actions": [],
+ "creation": "2026-10-05 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enable_push",
+  "vapid_subject",
+  "section_keys",
+  "vapid_public_key",
+  "vapid_private_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "enable_push",
+   "fieldtype": "Check",
+   "label": "Send Push Notifications",
+   "default": "1",
+   "description": "Phones that allowed notifications are told about new visits, requests and review results."
+  },
+  {
+   "fieldname": "vapid_subject",
+   "fieldtype": "Data",
+   "label": "Contact for Push Services",
+   "default": "mailto:info@cw-eg.com",
+   "description": "A mailto: or https: address the push services can use to reach the site owner."
+  },
+  {
+   "fieldname": "section_keys",
+   "fieldtype": "Section Break",
+   "label": "Keys",
+   "description": "Generated automatically the first time they are needed. Clearing them signs every phone out of notifications."
+  },
+  {
+   "fieldname": "vapid_public_key",
+   "fieldtype": "Small Text",
+   "label": "Public Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "vapid_private_key",
+   "fieldtype": "Password",
+   "label": "Private Key",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-05 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "CW PWA",
+ "name": "CW PWA Settings",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "issingle": 1,
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  }
+ ]
+}

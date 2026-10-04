@@ -4,6 +4,8 @@
  * cw_visit/rules.py and its answer is the one that counts.
  */
 
+import { t } from "./i18n.js";
+
 const EARTH_RADIUS_M = 6371000;
 const SEVERITY = { Normal: 0, Warning: 1, Critical: 2 };
 
@@ -73,32 +75,32 @@ export function reviewBlockers(visit, { outcome, summary, photoCount, settings =
 	const rules = visit.rules || {};
 
 	if (!outcome) {
-		problems.push({ step: "review", text: "Select the visit outcome." });
+		problems.push({ step: "review", text: t("Select the visit outcome.") });
 	} else if (OUTCOMES_NEEDING_SUMMARY.includes(outcome) && !(summary || "").trim()) {
-		problems.push({ step: "review", text: `Add a summary explaining the outcome "${outcome}".` });
+		problems.push({ step: "review", text: t("Add a summary explaining the outcome: {outcome}.", { outcome: t(outcome) }) });
 	}
 
 	for (const row of visit.checklist_items || []) {
 		const answered = (row.response || "").trim() || String(row.response_value ?? "").trim();
 		if (row.is_mandatory && !answered) {
-			problems.push({ step: "checklist", text: `Answer: ${row.checklist_item}` });
+			problems.push({ step: "checklist", text: t("Answer: {item}", { item: row.checklist_item }) });
 		}
 	}
 
 	for (const row of visit.readings || []) {
 		if (!String(row.reading_value ?? "").trim()) {
-			problems.push({ step: "readings", text: `Enter a value for ${row.parameter_name || row.parameter}.` });
+			problems.push({ step: "readings", text: t("Enter a value for {name}.", { name: row.parameter_name || row.parameter }) });
 		}
 	}
 
 	const minReadings = Number(rules.min_readings) || 0;
 	if ((visit.readings || []).length < minReadings) {
-		problems.push({ step: "readings", text: `Record at least ${minReadings} reading(s) for this service type.` });
+		problems.push({ step: "readings", text: t("Record at least {n} reading(s) for this service type.", { n: minReadings }) });
 	}
 
 	const minPhotos = Number(rules.min_evidence_photos) || 0;
 	if (photoCount < minPhotos) {
-		problems.push({ step: "photos", text: `Attach at least ${minPhotos} photo(s) for this service type.` });
+		problems.push({ step: "photos", text: t("Attach at least {n} photo(s) for this visit.", { n: minPhotos }) });
 	}
 
 	if (
@@ -106,7 +108,7 @@ export function reviewBlockers(visit, { outcome, summary, photoCount, settings =
 		visit.geofence_status === "Exception" &&
 		!(visit.geofence_reason || "").trim()
 	) {
-		problems.push({ step: "review", text: "Explain why the check-in location could not be verified." });
+		problems.push({ step: "review", text: t("Explain why the check-in location could not be verified.") });
 	}
 
 	return problems;

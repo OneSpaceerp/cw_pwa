@@ -1,16 +1,18 @@
 <script setup>
-import { Building2, Check, LoaderCircle, MapPin, Plus, Search, X } from "@lucide/vue";
-import { computed, reactive, ref, watch } from "vue";
+import { Building2, Camera, Check, ChevronRight, LoaderCircle, MapPin, Plus, RotateCw, X } from "@lucide/vue";
+import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
+import CustomerPicker from "@/components/CustomerPicker.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import StartSheet from "@/components/StartSheet.vue";
 import { call } from "@/lib/api";
 import { vibrate } from "@/lib/device";
+import { t } from "@/lib/i18n";
 import { catalogue, options } from "@/stores/masters";
-import { session, settings } from "@/stores/session";
+import { settings } from "@/stores/session";
 import { toastError } from "@/stores/ui";
-import { createVisit } from "@/stores/visits";
+import { addPhoto, createVisit } from "@/stores/visits";
 
 const router = useRouter();
 
@@ -21,49 +23,27 @@ const form = reactive({
 	visitType: "",
 	priority: "Medium",
 	description: "",
+	photo: null, // File
 });
 const errors = reactive({});
 
-const search = reactive({ query: "", results: [], busy: false, error: "" });
+const pickerOpen = ref(false);
 const locations = reactive({ items: [], busy: false, error: "" });
 const proposing = ref(false);
 const proposed = reactive({ location_name: "", address: "" });
 const startOpen = ref(false);
 const creating = ref(false);
+const photoUrl = ref("");
 
 const priorities = computed(() => (options("priority").length ? options("priority") : ["Low", "Medium", "High", "Critical"]));
 const canPropose = computed(() => Boolean(settings().allow_engineer_proposed_locations));
-
-let timer = null;
-watch(
-	() => search.query,
-	(query) => {
-		clearTimeout(timer);
-		if (query.trim().length < 2) {
-			search.results = [];
-			return;
-		}
-		timer = setTimeout(async () => {
-			search.busy = true;
-			search.error = "";
-			try {
-				search.results = await call("cw_visit.api.v1.search_customers", { query: query.trim() });
-			} catch (error) {
-				search.results = [];
-				search.error = error.network ? "Finding a customer needs a connection." : error.message;
-			} finally {
-				search.busy = false;
-			}
-		}, 300);
-	}
-);
+const photoRequired = computed(() => Boolean(settings().require_site_photo_for_onsite_visits));
 
 async function chooseCustomer(customer) {
+	pickerOpen.value = false;
 	form.customer = customer;
 	form.location = null;
 	form.newLocation = null;
-	search.query = "";
-	search.results = [];
 	delete errors.customer;
 
 	locations.busy = true;
@@ -73,17 +53,10 @@ async function chooseCustomer(customer) {
 		if (locations.items.length === 1) form.location = locations.items[0];
 	} catch (error) {
 		locations.items = [];
-		locations.error = error.network ? "The site list needs a connection." : error.message;
+		locations.error = error.network ? t("The site list needs a connection.") : error.message;
 	} finally {
 		locations.busy = false;
 	}
-}
-
-function clearCustomer() {
-	form.customer = null;
-	form.location = null;
-	form.newLocation = null;
-	locations.items = [];
 }
 
 function chooseLocation(location) {
@@ -101,11 +74,29 @@ function confirmProposal() {
 	delete errors.location;
 }
 
+function onPhoto(event) {
+	const [file] = event.target.files;
+	event.target.value = "";
+	if (!file) return;
+	if (photoUrl.value) URL.revokeObjectURL(photoUrl.value);
+	form.photo = file;
+	photoUrl.value = URL.createObjectURL(file);
+	delete errors.photo;
+}
+
+function clearPhoto() {
+	if (photoUrl.value) URL.revokeObjectURL(photoUrl.value);
+	form.photo = null;
+	photoUrl.value = "";
+}
+onBeforeUnmount(() => photoUrl.value && URL.revokeObjectURL(photoUrl.value));
+
 function validate() {
 	for (const key of Object.keys(errors)) delete errors[key];
-	if (!form.customer) errors.customer = "Choose the customer.";
-	if (!form.location && !form.newLocation) errors.location = "Choose the site, or add a new one.";
-	if (!form.visitType) errors.visitType = "Choose the type of service.";
+	if (!form.customer) errors.customer = t("Choose the customer.");
+	if (form.customer && !form.location && !form.newLocation) errors.location = t("Choose the site, or add a new one.");
+	if (!form.visitType) errors.visitType = t("Choose the type of service.");
+	if (photoRequired.value && !form.photo) errors.photo = t("Take a photo of the site.");
 	const first = Object.keys(errors)[0];
 	if (first) document.getElementById(`nv-${first}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
 	return !first;
@@ -115,12 +106,9 @@ function proceed() {
 	if (validate()) startOpen.value = true;
 }
 
-// A proposed site is created at the engineer's position, so it has nothing to be compared with yet.
-const siteForCheck = computed(() => form.location || null);
-
 async function confirmStart({ position, reason }) {
 	if (form.newLocation && !position) {
-		toastError(new Error("A new site can only be added with a GPS location. Read the location again."));
+		toastError(new Error(t("A new site can only be added with a GPS location. Read the location again.")));
 		return;
 	}
 	creating.value = true;
@@ -136,11 +124,13 @@ async function confirmStart({ position, reason }) {
 			reason,
 			startNow: true,
 		});
+		// The site photo is queued right behind the visit, as its first evidence.
+		if (form.photo) await addPhoto(name, form.photo, { category: "Before Inspection", caption: "Site photo" });
 		vibrate(15);
 		startOpen.value = false;
 		router.replace({ name: "visit-run", params: { name } });
 	} catch (error) {
-		toastError(error, "The visit could not be created.");
+		toastError(error, t("The visit could not be created."));
 	} finally {
 		creating.value = false;
 	}
@@ -152,56 +142,28 @@ async function confirmStart({ position, reason }) {
 		<PageHeader back :fallback="{ name: 'visits' }" title="New visit" subtitle="Log a visit you are making now" />
 
 		<div class="scroll-area min-h-0 flex-1">
-			<form class="mx-auto max-w-xl space-y-5 px-4 pb-8 pt-4" novalidate @submit.prevent="proceed">
+			<form class="mx-auto max-w-xl space-y-4 px-4 pb-8 pt-4" novalidate @submit.prevent="proceed">
 				<!-- Customer -->
-				<section id="nv-customer" class="card p-4">
+				<section id="nv-customer" class="card p-5">
 					<h2 class="field-label">Customer <span class="text-bad" aria-hidden="true">*</span></h2>
-
-					<div v-if="form.customer" class="flex items-center justify-between gap-3 rounded-control px-4 py-3 tone-brand">
-						<span class="flex min-w-0 items-center gap-2 font-bold">
-							<Building2 :size="18" class="shrink-0" aria-hidden="true" />
-							<span class="truncate">{{ form.customer.customer_name }}</span>
+					<button
+						type="button"
+						class="field flex items-center gap-3 text-start"
+						:class="errors.customer ? 'border-bad' : ''"
+						aria-haspopup="dialog"
+						@click="pickerOpen = true"
+					>
+						<Building2 :size="20" class="shrink-0 text-ink-3" aria-hidden="true" />
+						<span class="min-w-0 flex-1 truncate" :class="form.customer ? 'font-semibold text-ink' : 'text-ink-3'">
+							{{ form.customer ? form.customer.customer_name : t("Select a customer") }}
 						</span>
-						<button type="button" class="icon-btn -mr-2 text-current" aria-label="Change customer" @click="clearCustomer">
-							<X :size="20" aria-hidden="true" />
-						</button>
-					</div>
-
-					<template v-else>
-						<div class="relative">
-							<Search :size="18" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
-							<input
-								v-model="search.query"
-								type="search"
-								class="field pl-10"
-								placeholder="Type at least 2 letters"
-								aria-label="Search customers"
-								autocomplete="off"
-								:disabled="!session.online"
-							/>
-							<LoaderCircle v-if="search.busy" :size="18" class="spin absolute right-3.5 top-1/2 -mt-[9px] text-ink-3" aria-hidden="true" />
-						</div>
-						<p v-if="!session.online" class="mt-2 text-sm font-semibold text-warn">
-							Looking up a customer needs a connection. Go online to start a new visit.
-						</p>
-						<ul v-if="search.results.length" class="mt-2 divide-y divide-line overflow-hidden rounded-control border border-line">
-							<li v-for="customer in search.results" :key="customer.name">
-								<button type="button" class="block min-h-[52px] w-full px-4 py-2 text-left active:bg-sunken" @click="chooseCustomer(customer)">
-									<span class="block font-semibold text-ink">{{ customer.customer_name }}</span>
-									<span v-if="customer.name !== customer.customer_name" class="block text-sm text-ink-3">{{ customer.name }}</span>
-								</button>
-							</li>
-						</ul>
-						<p v-else-if="search.query.trim().length >= 2 && !search.busy && !search.error" class="mt-2 text-sm text-ink-2">
-							No customer found. New customers are added in ERPNext by the office.
-						</p>
-						<p v-if="search.error" class="field-error">{{ search.error }}</p>
-					</template>
+						<ChevronRight :size="20" class="shrink-0 text-ink-3" aria-hidden="true" />
+					</button>
 					<p v-if="errors.customer" class="field-error" role="alert">{{ errors.customer }}</p>
 				</section>
 
 				<!-- Site -->
-				<section v-if="form.customer" id="nv-location" class="card p-4">
+				<section v-if="form.customer" id="nv-location" class="card p-5">
 					<h2 class="field-label">Site <span class="text-bad" aria-hidden="true">*</span></h2>
 
 					<p v-if="locations.busy" class="flex items-center gap-2 py-2 text-ink-2">
@@ -210,13 +172,13 @@ async function confirmStart({ position, reason }) {
 					</p>
 					<p v-else-if="locations.error" class="field-error">{{ locations.error }}</p>
 
-					<ul v-else class="space-y-2" role="radiogroup" aria-label="Site">
+					<ul v-else class="space-y-2" role="radiogroup" :aria-label="t('Site')">
 						<li v-for="location in locations.items" :key="location.name">
 							<button
 								type="button"
 								role="radio"
 								:aria-checked="form.location?.name === location.name"
-								class="flex min-h-[56px] w-full items-center gap-3 rounded-control border px-4 py-2 text-left"
+								class="flex min-h-[60px] w-full items-center gap-3 rounded-control border-[1.5px] px-4 py-2 text-start"
 								:class="form.location?.name === location.name ? 'border-brand-strong bg-brand-soft' : 'border-line bg-surface'"
 								@click="chooseLocation(location)"
 							>
@@ -232,10 +194,10 @@ async function confirmStart({ position, reason }) {
 
 					<div v-if="form.newLocation" class="mt-2 flex items-center justify-between gap-3 rounded-control px-4 py-3 tone-warn">
 						<span class="min-w-0">
-							<span class="block truncate font-bold">New site: {{ form.newLocation.location_name }}</span>
+							<span class="block truncate font-bold">{{ t("New site") }}: {{ form.newLocation.location_name }}</span>
 							<span class="block text-sm font-medium">Saved at your current location, for a supervisor to confirm.</span>
 						</span>
-						<button type="button" class="icon-btn -mr-2 text-current" aria-label="Remove new site" @click="form.newLocation = null">
+						<button type="button" class="icon-btn -me-2 text-current" aria-label="Remove new site" @click="form.newLocation = null">
 							<X :size="20" aria-hidden="true" />
 						</button>
 					</div>
@@ -263,19 +225,52 @@ async function confirmStart({ position, reason }) {
 					<p v-if="errors.location" class="field-error" role="alert">{{ errors.location }}</p>
 				</section>
 
+				<!-- Site photo -->
+				<section id="nv-photo" class="card p-5">
+					<h2 class="field-label">
+						Site photo
+						<span v-if="photoRequired" class="text-bad" aria-hidden="true">*</span>
+						<span v-else class="font-medium text-ink-3">(optional)</span>
+					</h2>
+
+					<div v-if="photoUrl" class="relative overflow-hidden rounded-control">
+						<img :src="photoUrl" alt="Site photo" class="aspect-video w-full object-cover" />
+						<div class="absolute inset-x-0 bottom-0 flex gap-2 bg-gradient-to-t from-black/70 to-transparent p-3 pt-8">
+							<label class="btn min-h-[44px] flex-1 cursor-pointer bg-white/95 px-4 text-sm text-[#0e2430]">
+								<RotateCw :size="16" aria-hidden="true" />
+								Retake
+								<input type="file" class="sr-only" accept="image/*" capture="environment" @change="onPhoto" />
+							</label>
+							<button type="button" class="btn min-h-[44px] bg-white/95 px-4 text-sm text-[#b91c1c]" @click="clearPhoto">Remove</button>
+						</div>
+					</div>
+
+					<label
+						v-else
+						class="flex min-h-[132px] cursor-pointer flex-col items-center justify-center gap-2 rounded-control border-[1.5px] border-dashed px-4 py-5 text-center"
+						:class="errors.photo ? 'border-bad' : 'border-line'"
+					>
+						<span class="icon-tile" aria-hidden="true"><Camera :size="22" /></span>
+						<span class="font-bold text-brand-strong">Take a photo of the site</span>
+						<span class="text-sm text-ink-2">The entrance, the plant or the equipment you came for.</span>
+						<input type="file" class="sr-only" accept="image/*" capture="environment" @change="onPhoto" />
+					</label>
+					<p v-if="errors.photo" class="field-error" role="alert">{{ errors.photo }}</p>
+				</section>
+
 				<!-- Service -->
-				<section id="nv-visitType" class="card space-y-4 p-4">
+				<section id="nv-visitType" class="card space-y-4 p-5">
 					<div>
 						<label class="field-label" for="nv-type">Type of service <span class="text-bad" aria-hidden="true">*</span></label>
-						<select id="nv-type" v-model="form.visitType" class="field">
-							<option value="" disabled>Select</option>
+						<select id="nv-type" v-model="form.visitType" class="field" :class="errors.visitType ? 'border-bad' : ''">
+							<option value="" disabled>{{ t("Select") }}</option>
 							<option v-for="type in catalogue().service_types" :key="type.name" :value="type.name">{{ type.name }}</option>
 						</select>
 						<p v-if="errors.visitType" class="field-error" role="alert">{{ errors.visitType }}</p>
 					</div>
 
 					<div>
-						<span class="field-label" id="nv-priority-label">Priority</span>
+						<span id="nv-priority-label" class="field-label">Priority</span>
 						<div class="flex gap-2" role="radiogroup" aria-labelledby="nv-priority-label">
 							<button
 								v-for="item in priorities"
@@ -283,11 +278,11 @@ async function confirmStart({ position, reason }) {
 								type="button"
 								role="radio"
 								:aria-checked="form.priority === item"
-								class="min-h-[44px] flex-1 rounded-control border text-sm font-bold"
+								class="min-h-[46px] flex-1 rounded-full border-[1.5px] text-sm font-bold"
 								:class="form.priority === item ? 'border-brand-strong bg-brand-strong text-on-brand' : 'border-line bg-surface text-ink-2'"
 								@click="form.priority = item"
 							>
-								{{ item }}
+								{{ t(item) }}
 							</button>
 						</div>
 					</div>
@@ -302,9 +297,11 @@ async function confirmStart({ position, reason }) {
 			</form>
 		</div>
 
+		<CustomerPicker :open="pickerOpen" :selected="form.customer" @close="pickerOpen = false" @select="chooseCustomer" />
+
 		<StartSheet
 			:open="startOpen"
-			:site="siteForCheck"
+			:site="form.location"
 			:busy="creating"
 			title="Check in"
 			confirm-label="Create and start visit"

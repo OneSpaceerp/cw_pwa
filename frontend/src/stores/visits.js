@@ -418,7 +418,7 @@ export async function createVisit({ customer, visitType, location, newLocation, 
 	await enqueue({
 		action: "create_visit",
 		visit: name,
-		label: `Create visit for ${customer.customer_name}`,
+		label: "Create visit",
 		payload: {
 			customer: customer.name,
 			visit_type: visitType,

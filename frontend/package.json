@@ -9,7 +9,8 @@
     "build:standalone": "vite build --mode standalone",
     "preview:standalone": "vite preview --mode standalone",
     "test": "node --test tests/*.test.mjs",
-    "mock": "node scripts/mock-server.mjs"
+    "mock": "node scripts/mock-server.mjs",
+    "i18n:check": "node scripts/check-i18n.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.52.0",

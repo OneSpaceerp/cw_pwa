@@ -2,6 +2,7 @@
 import { CircleAlert, CloudUpload, LoaderCircle } from "@lucide/vue";
 import { computed } from "vue";
 
+import { t } from "@/lib/i18n";
 import { failedCount, outbox, waitingCount } from "@/stores/outbox";
 
 const waiting = computed(() => waitingCount());
@@ -15,7 +16,7 @@ const failed = computed(() => failedCount());
 		:to="{ name: 'sync' }"
 		class="inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-3 text-xs font-bold"
 		:class="failed ? 'tone-bad' : 'tone-warn'"
-		:aria-label="failed ? `${failed} changes need attention` : `${waiting} changes waiting to sync`"
+		:aria-label="failed ? t('{count} changes need attention', { count: failed }) : t('{count} changes waiting to sync', { count: waiting })"
 	>
 		<CircleAlert v-if="failed" :size="15" aria-hidden="true" />
 		<LoaderCircle v-else-if="outbox.flushing" :size="15" class="spin" aria-hidden="true" />

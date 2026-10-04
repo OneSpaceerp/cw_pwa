@@ -9,6 +9,7 @@ import { computed, ref, watch } from "vue";
 
 import { getPosition } from "@/lib/device";
 import { distanceLabel, GEOFENCE_TONE } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { evaluateGeofence } from "@/lib/rules";
 import { settings } from "@/stores/session";
 
@@ -61,16 +62,16 @@ const canConfirm = computed(
 );
 
 const headline = computed(() => {
-	if (!position.value) return "No location captured";
+	if (!position.value) return t("No location captured");
 	const { status, distance } = estimate.value;
-	if (distance === null) return "This site has no saved coordinates to compare with";
-	if (status === "Verified") return `You are at the site (${distanceLabel(distance)} away)`;
+	if (distance === null) return t("This site has no saved coordinates to compare with");
+	if (status === "Verified") return t("You are at the site ({distance} away)", { distance: distanceLabel(distance) });
 	if (status === "Warning") {
 		return props.site?.verification_status === "Pending Verification"
-			? "This site's location has not been confirmed by a supervisor yet"
-			: `You are near the site (${distanceLabel(distance)} away)`;
+			? t("This site's location has not been confirmed by a supervisor yet")
+			: t("You are near the site ({distance} away)", { distance: distanceLabel(distance) });
 	}
-	return `You are ${distanceLabel(distance)} from the site`;
+	return t("You are {distance} from the site", { distance: distanceLabel(distance) });
 });
 </script>
 
@@ -87,10 +88,10 @@ const headline = computed(() => {
 						<component :is="position ? LocateFixed : MapPin" :size="20" class="mt-0.5 shrink-0" aria-hidden="true" />
 						{{ headline }}
 					</p>
-					<p v-if="position?.accuracy" class="mt-1 pl-7 text-sm font-medium">
-						GPS accuracy about <span class="numeric">{{ Math.round(position.accuracy) }} m</span>
+					<p v-if="position?.accuracy" class="mt-1 ps-7 text-sm font-medium">
+						{{ t("GPS accuracy about {n} m", { n: Math.round(position.accuracy) }) }}
 					</p>
-					<p v-if="gpsError" class="mt-1 pl-7 text-sm font-medium">{{ gpsError }}</p>
+					<p v-if="gpsError" class="mt-1 ps-7 text-sm font-medium">{{ gpsError }}</p>
 				</template>
 			</div>
 

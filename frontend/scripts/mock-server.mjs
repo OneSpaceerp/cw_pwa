@@ -33,6 +33,7 @@ const settings = {
 	default_geofence_radius_meters: 200,
 	warning_buffer_meters: 300,
 	max_evidence_file_size_mb: 10,
+	require_site_photo_for_onsite_visits: 1,
 };
 
 const masters = {
@@ -68,6 +69,10 @@ const customers = [
 	{ name: "CUST-0001", customer_name: "Nile Beverages Co." },
 	{ name: "CUST-0002", customer_name: "Delta Textiles" },
 	{ name: "CUST-0003", customer_name: "October Pharma" },
+	{ name: "CUST-0004", customer_name: "Alexandria Glass Works" },
+	{ name: "CUST-0005", customer_name: "Cairo Dairy" },
+	{ name: "CUST-0006", customer_name: "Red Sea Resorts" },
+	{ name: "CUST-0007", customer_name: "Suez Steel" },
 ];
 
 const sites = {
@@ -262,7 +267,7 @@ const api = {
 			? {
 					api_version: "1", user: USER, full_name: "Omar Hassan", user_image: null, language: "en",
 					roles: ["CW Visit Engineer"], has_access: true, is_reviewer: false, employee: "EMP-0007", employee_name: "Omar Hassan",
-					server_time: now(), settings, csrf_token: "mock-csrf-token", site_name: "mock.local",
+					server_time: now(), settings, csrf_token: "mock-csrf-token", site_name: "mock.local", push_public_key: null,
 				}
 			: { user: "Guest", site_name: "mock.local" },
 
@@ -298,8 +303,16 @@ const api = {
 	},
 	"cw_visit.api.v1.search_customers": (args) => {
 		const needle = String(args.query || "").toLowerCase();
-		return needle.length < 2 ? [] : customers.filter((item) => item.customer_name.toLowerCase().includes(needle));
+		const start = Number(args.start) || 0;
+		const page = 5; // small on purpose, so "Show more" can be exercised
+		const matches = customers
+			.filter((item) => !needle || item.customer_name.toLowerCase().includes(needle) || item.name.toLowerCase().includes(needle))
+			.sort((a, b) => a.customer_name.localeCompare(b.customer_name));
+		return { customers: matches.slice(start, start + page), has_more: matches.length > start + page };
 	},
+	"cw_pwa.api.subscribe_push": () => ({ ok: true }),
+	"cw_pwa.api.unsubscribe_push": () => ({ ok: true }),
+	"cw_pwa.api.test_push": () => ({ sent: 0, failed: 0, removed: 0 }),
 	"cw_visit.api.v1.customer_locations": (args) => Object.values(sites).filter((site) => site.customer === args.customer),
 	"cw_visit.api.v1.search_items": (args) => {
 		const items = [{ name: "ITM-SEAL-12", item_name: "Dosing pump seal kit 12mm", stock_uom: "Nos" }, { name: "ITM-ANTISC-25", item_name: "Antiscalant 25 L drum", stock_uom: "Drum" }];
@@ -375,6 +388,8 @@ const api = {
 				proposedSite = sites[location] = { name: location, location_name: args.new_location.location_name, customer: customer.name, latitude: Number(args.latitude), longitude: Number(args.longitude), geofence_radius_meters: 200, verification_status: "Pending Verification", address_display: args.new_location.address || "" };
 			}
 			const visit = makeVisit({ customer: customer.name, customer_name: customer.customer_name, service_location: location, visit_type: args.visit_type, priority: args.priority || "Medium", description: args.description || "", creation_source: "Engineer On-Site", _site: proposedSite });
+			// An on-site visit needs at least one photo before review.
+			visit.rules.min_evidence_photos = Math.max(visit.rules.min_evidence_photos, settings.require_site_photo_for_onsite_visits ? 1 : 0);
 			if (Number(args.start_now)) start(visit, args);
 			return { visit: visit.name, data: payload(visit) };
 		}),

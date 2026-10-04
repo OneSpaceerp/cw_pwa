@@ -35,7 +35,7 @@
 	--review: #6d28d9;
 	--review-soft: #ede9fe;
 
-	--tabbar-height: 60px;
+	--tabbar-height: 68px;
 	--header-height: 56px;
 	--keyboard-inset: 0px;
 }
@@ -153,18 +153,26 @@
 		display: none;
 	}
 
+	/* Soft, borderless cards floating on the page background. */
 	.card {
-		@apply rounded-card border border-line bg-surface shadow-card;
+		@apply rounded-card bg-surface shadow-card;
+	}
+	/* Lists and form panels keep a hairline so their rows read as one group. */
+	.card-outline {
+		@apply rounded-card border border-line bg-surface;
 	}
 
 	.btn {
-		@apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-control px-5 text-base font-semibold transition-[transform,background-color,opacity] duration-150 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100;
+		@apply inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full px-6 text-base font-semibold transition-[transform,background-color,opacity] duration-150 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100;
 	}
 	.btn-primary {
 		@apply btn bg-brand-strong text-on-brand;
 	}
 	.btn-secondary {
-		@apply btn border border-line bg-surface text-ink;
+		@apply btn border-[1.5px] border-line bg-surface text-ink;
+	}
+	.btn-outline {
+		@apply btn border-[1.5px] border-brand-strong bg-transparent text-brand-strong;
 	}
 	.btn-quiet {
 		@apply btn bg-sunken text-ink;
@@ -184,14 +192,31 @@
 		@apply mb-1.5 block text-sm font-semibold text-ink-2;
 	}
 	.field {
-		@apply block min-h-[48px] w-full rounded-control border border-line bg-surface px-4 py-3 text-ink placeholder:text-ink-3 focus:border-brand-strong focus:outline-none focus:ring-2 focus:ring-brand-soft;
+		@apply block min-h-[52px] w-full rounded-control border-[1.5px] border-line bg-surface px-4 py-3 text-ink placeholder:text-ink-3 focus:border-brand-strong focus:outline-none focus:ring-4 focus:ring-brand-soft;
 	}
 	.field-error {
 		@apply mt-1.5 text-sm font-medium text-bad;
 	}
 
 	.section-title {
-		@apply mb-2 px-1 text-xs font-bold uppercase tracking-wider text-ink-3;
+		@apply mb-2.5 px-1 text-[15px] font-bold text-ink;
+	}
+
+	/* Outlined status chip: tinted fill, matching hairline. */
+	.chip {
+		@apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold leading-none;
+	}
+
+	.chip {
+		border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+	}
+
+	/* A row that leads somewhere: icon tile, label, chevron. */
+	.link-row {
+		@apply flex min-h-[64px] w-full items-center gap-3.5 px-4 py-3 text-start active:bg-sunken;
+	}
+	.icon-tile {
+		@apply flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong;
 	}
 
 	/* Status tones, used by pills, banners and dots. */
@@ -227,6 +252,38 @@
    `.keyboard-open` alone, which hid the whole page whenever the keyboard opened. */
 .keyboard-open .tabbar {
 	display: none;
+}
+
+/* ------------------------------------------------------------------- rtl
+   Layout mirrors through logical classes (ps-, me-, start-, text-start). Icons
+   that point in the reading direction have to be flipped as well. */
+[dir="rtl"] .lucide-chevron-right,
+[dir="rtl"] .lucide-chevron-left,
+[dir="rtl"] .lucide-arrow-left,
+[dir="rtl"] .lucide-arrow-right,
+[dir="rtl"] .lucide-send,
+[dir="rtl"] .lucide-log-out,
+[dir="rtl"] .lucide-navigation {
+	transform: scaleX(-1);
+}
+
+/* Customer, site and service names are often English inside an Arabic screen.
+   Let each line take its direction from its own text, so "Nile Beverages Co."
+   keeps its full stop at the end; alignment still follows the page. */
+[dir="rtl"] :is(h1, h2, h3, p, dd, .truncate) {
+	unicode-bidi: plaintext;
+}
+
+/* Values that are always left-to-right, even inside Arabic text: ids, phone numbers. */
+.ltr {
+	direction: ltr;
+	unicode-bidi: isolate;
+}
+[dir="rtl"] input[type="tel"],
+[dir="rtl"] input[inputmode="decimal"],
+[dir="rtl"] input[inputmode="email"] {
+	direction: ltr;
+	text-align: end;
 }
 
 /* ----------------------------------------------------------------- motion */

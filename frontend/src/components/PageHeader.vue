@@ -31,13 +31,13 @@ function goBack() {
 			<button v-if="back" type="button" class="icon-btn" aria-label="Back" @click="goBack">
 				<ChevronLeft :size="26" aria-hidden="true" />
 			</button>
-			<div class="min-w-0 flex-1" :class="back ? '' : 'pl-3'">
+			<div class="min-w-0 flex-1" :class="back ? '' : 'ps-3'">
 				<h1 class="truncate text-[19px] font-bold text-ink">
 					<slot name="title">{{ title }}</slot>
 				</h1>
 				<p v-if="subtitle" class="-mt-0.5 truncate text-xs font-medium text-ink-3">{{ subtitle }}</p>
 			</div>
-			<div class="flex shrink-0 items-center gap-1 pr-1">
+			<div class="flex shrink-0 items-center gap-1 pe-1">
 				<slot name="actions" />
 			</div>
 		</div>

@@ -10,6 +10,7 @@ import StartSheet from "@/components/StartSheet.vue";
 import SyncChip from "@/components/SyncChip.vue";
 import { call } from "@/lib/api";
 import { directionsUrl, vibrate } from "@/lib/device";
+import { t } from "@/lib/i18n";
 import { dateTimeLabel, dayLabel, distanceLabel, durationLabel, GEOFENCE_TONE, PRIORITY_TONE, STATUS, timeLabel } from "@/lib/format";
 import { hasCoordinates } from "@/lib/rules";
 import { isLocalId } from "@/stores/outbox";
@@ -135,7 +136,7 @@ onMounted(async () => {
 					<section class="card p-5">
 						<div class="flex flex-wrap items-center gap-1.5">
 							<Pill :tone="status.tone" dot>{{ status.label }}</Pill>
-							<Pill :tone="PRIORITY_TONE[data.priority] || 'muted'">{{ data.priority }} priority</Pill>
+							<Pill :tone="PRIORITY_TONE[data.priority] || 'muted'">{{ t("{priority} priority", { priority: t(data.priority) }) }}</Pill>
 							<Pill v-if="data.creation_source === 'Engineer On-Site'" tone="muted">Logged on site</Pill>
 						</div>
 						<h2 class="mt-3 text-xl font-extrabold text-ink">{{ data.visit_type }}</h2>
@@ -160,7 +161,7 @@ onMounted(async () => {
 							<MapPin :size="18" class="mt-0.5 shrink-0 text-ink-3" aria-hidden="true" />
 							<span class="whitespace-pre-line">{{ site.address_display }}</span>
 						</p>
-						<p v-if="site.operating_hours" class="mt-1 pl-[26px] text-sm text-ink-2">Open: {{ site.operating_hours }}</p>
+						<p v-if="site.operating_hours" class="mt-1 ps-[26px] text-sm text-ink-2">Open: {{ site.operating_hours }}</p>
 						<p v-if="site.verification_status === 'Pending Verification'" class="mt-3 rounded-control px-3 py-2 text-sm font-semibold tone-warn">
 							This site's location is waiting for a supervisor to confirm it.
 						</p>
@@ -172,7 +173,7 @@ onMounted(async () => {
 							</a>
 							<a v-if="site.primary_contact_phone" :href="`tel:${site.primary_contact_phone}`" class="btn-secondary">
 								<Phone :size="18" aria-hidden="true" />
-								Call {{ (site.primary_contact_person || "contact").split(" ")[0] }}
+								{{ t("Call {name}", { name: (site.primary_contact_person || t("contact")).split(" ")[0] }) }}
 							</a>
 						</div>
 
@@ -187,7 +188,7 @@ onMounted(async () => {
 
 					<!-- Linked request -->
 					<section v-if="data.request" class="card p-5" aria-labelledby="visit-request">
-						<h2 id="visit-request" class="section-title px-0">Service request {{ data.request.name }}</h2>
+						<h2 id="visit-request" class="section-title px-0">{{ t("Service request") }} <span class="ltr">{{ data.request.name }}</span></h2>
 						<p class="whitespace-pre-line text-ink">{{ data.request.issue_description }}</p>
 						<p v-if="data.request.response_due_date" class="mt-2 text-sm font-semibold" :class="data.request.sla_breached ? 'text-bad' : 'text-ink-2'">
 							Response due {{ dateTimeLabel(data.request.response_due_date) }}<template v-if="data.request.sla_breached"> (overdue)</template>
@@ -228,7 +229,7 @@ onMounted(async () => {
 							<History :size="14" aria-hidden="true" />
 							Previous visits to this site
 						</h2>
-						<ul class="card divide-y divide-line">
+						<ul class="card-outline divide-y divide-line">
 							<li v-for="item in history" :key="item.name" class="px-4 py-3">
 								<div class="flex items-center justify-between gap-3">
 									<p class="font-semibold text-ink">{{ dayLabel(item.planned_date) }} · {{ item.visit_type }}</p>

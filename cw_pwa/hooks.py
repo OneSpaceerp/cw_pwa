@@ -31,3 +31,8 @@ website_route_rules = [
 ]
 
 page_renderer = ["cw_pwa.renderers.ServiceWorkerPage"]
+
+# Every alert about a visit or a service request is also pushed to the user's phones.
+doc_events = {
+	"Notification Log": {"after_insert": "cw_pwa.push.on_notification_log"},
+}
