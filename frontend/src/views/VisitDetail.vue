@@ -1,9 +1,10 @@
 <script setup>
-import { Building2, CircleAlert, Clock, FileText, History, Info, MapPin, Navigation, Phone, Play, RotateCw } from "@lucide/vue";
+import { Building2, CircleAlert, Clock, FileText, History, Info, MapPin, MessageSquareHeart, Navigation, Phone, Play, RotateCw, Share2 } from "@lucide/vue";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import EmptyState from "@/components/EmptyState.vue";
+import FeedbackStars from "@/components/FeedbackStars.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import Pill from "@/components/Pill.vue";
 import StartSheet from "@/components/StartSheet.vue";
@@ -15,7 +16,7 @@ import { dateTimeLabel, dayLabel, distanceLabel, durationLabel, GEOFENCE_TONE, P
 import { hasCoordinates } from "@/lib/rules";
 import { isLocalId } from "@/stores/outbox";
 import { session } from "@/stores/session";
-import { toastError } from "@/stores/ui";
+import { toast, toastError } from "@/stores/ui";
 import { clearServerError, hasUnsynced, openVisit, refreshVisit, startVisit, visits } from "@/stores/visits";
 
 const props = defineProps({ name: { type: String, required: true } });
@@ -46,6 +47,35 @@ const action = computed(() => {
 			return { label: "View what was recorded", icon: FileText, run: openRun, quiet: true };
 	}
 });
+
+const feedback = computed(() => data.value?.feedback);
+
+// Send the customer their feedback link: the phone's share sheet (WhatsApp, SMS, ...)
+// where there is one, WhatsApp to the representative's number otherwise.
+async function shareFeedback() {
+	const url = feedback.value?.url;
+	if (!url) return;
+	const text = t("Thank you for choosing C-Water. Please rate today's visit: {url}", { url });
+	try {
+		if (navigator.share) {
+			await navigator.share({ title: t("Rate your visit"), text });
+			return;
+		}
+	} catch (error) {
+		if (error?.name === "AbortError") return;
+	}
+	const phone = String(data.value?.customer_representative_phone || "").replace(/[^0-9]/g, "");
+	window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+}
+
+async function copyFeedback() {
+	try {
+		await navigator.clipboard.writeText(feedback.value.url);
+		toast(t("Link copied"), "ok");
+	} catch {
+		toast(feedback.value.url);
+	}
+}
 
 function openRun() {
 	router.push({ name: "visit-run", params: { name: props.name } });
@@ -221,6 +251,28 @@ onMounted(async () => {
 								<dd class="font-semibold">{{ durationLabel(data.visit_duration_minutes) }}</dd>
 							</div>
 						</dl>
+					</section>
+
+					<!-- Customer feedback -->
+					<section v-if="feedback" class="card p-5" aria-labelledby="visit-feedback">
+						<h2 id="visit-feedback" class="section-title flex items-center gap-1.5 px-0">
+							<MessageSquareHeart :size="18" aria-hidden="true" /> Customer feedback
+						</h2>
+						<div v-if="feedback.status === 'Received'" class="space-y-1">
+							<FeedbackStars :model-value="feedback.stars || 0" readonly :size="28" />
+							<p class="text-center text-sm text-ink-2">{{ t("Rated by the customer") }}</p>
+						</div>
+						<div v-else-if="feedback.status === 'Requested'" class="space-y-3">
+							<p class="text-ink-2">The customer has not rated this visit yet.</p>
+							<template v-if="feedback.url">
+								<button type="button" class="btn-primary btn-block" @click="shareFeedback">
+									<Share2 :size="18" aria-hidden="true" /> Send feedback link
+								</button>
+								<button type="button" class="btn-quiet btn-block" @click="copyFeedback">Copy link</button>
+							</template>
+							<p v-else class="text-sm text-ink-3">Your supervisor can send the customer a new link.</p>
+						</div>
+						<p v-else class="text-ink-2">The customer did not give feedback.</p>
 					</section>
 
 					<!-- Site history -->

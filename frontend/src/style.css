@@ -211,6 +211,14 @@
 		border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
 	}
 
+	/* One of a few choices, as a button (feedback mode, problem solved). */
+	.chip-toggle {
+		@apply min-h-[48px] rounded-control border border-line bg-surface px-3 text-sm font-bold text-ink-2 transition-colors;
+	}
+	.chip-toggle.is-on {
+		@apply tone-brand border-current;
+	}
+
 	/* A row that leads somewhere: icon tile, label, chevron. */
 	.link-row {
 		@apply flex min-h-[64px] w-full items-center gap-3.5 px-4 py-3 text-start active:bg-sunken;

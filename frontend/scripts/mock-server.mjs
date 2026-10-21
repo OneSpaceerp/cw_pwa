@@ -34,6 +34,8 @@ const settings = {
 	warning_buffer_meters: 300,
 	max_evidence_file_size_mb: 10,
 	require_site_photo_for_onsite_visits: 1,
+	request_customer_feedback: 1,
+	allow_onsite_feedback: 1,
 };
 
 const masters = {
@@ -120,8 +122,8 @@ function makeVisit(values) {
 makeVisit({ customer: "CUST-0001", customer_name: "Nile Beverages Co.", service_location: "LOC-NB-01", visit_type: "Routine Water Inspection", priority: "High", planned_start_time: "10:00:00", planned_end_time: "12:00:00", description: "Monthly inspection of the RO skid and cooling tower basin.", service_request: "SR-2026-0012" });
 makeVisit({ customer: "CUST-0002", customer_name: "Delta Textiles", service_location: "LOC-DT-01", visit_type: "Washing & Flushing", planned_start_time: "14:30:00", description: "Basin washing after the dye-house shutdown." });
 makeVisit({ customer: "CUST-0001", customer_name: "Nile Beverages Co.", service_location: "LOC-NB-01", visit_type: "Emergency Breakdown", priority: "Critical", planned_date: addDays(1), planned_start_time: "08:00:00", description: "Dosing pump tripping on high pressure." });
-makeVisit({ customer: "CUST-0002", customer_name: "Delta Textiles", service_location: "LOC-DT-01", visit_type: "Routine Water Inspection", planned_date: addDays(-2), visit_status: "Correction Required", checkin_time: now(), geofence_status: "Verified", distance_to_site_meters: 34, supervisor_decision: "Correction Required", supervisor_remarks: "The TDS reading is missing. Please add it and resubmit." });
-makeVisit({ customer: "CUST-0001", customer_name: "Nile Beverages Co.", service_location: "LOC-NB-01", visit_type: "Routine Water Inspection", planned_date: addDays(-6), visit_status: "Approved", docstatus: 1, outcome: "Resolved", checkin_time: now(), checkout_time: now(), geofence_status: "Verified", distance_to_site_meters: 21, visit_duration_minutes: 95 });
+makeVisit({ customer: "CUST-0002", customer_name: "Delta Textiles", service_location: "LOC-DT-01", visit_type: "Routine Water Inspection", planned_date: addDays(-2), visit_status: "Correction Required", checkin_time: now(), geofence_status: "Verified", distance_to_site_meters: 34, supervisor_decision: "Correction Required", supervisor_remarks: "The TDS reading is missing. Please add it and resubmit.", feedback: { status: "Requested", stars: null, channel: "Feedback Link", url: "http://localhost:8090/visit-feedback?token=demo" } });
+makeVisit({ customer: "CUST-0001", customer_name: "Nile Beverages Co.", service_location: "LOC-NB-01", visit_type: "Routine Water Inspection", planned_date: addDays(-6), visit_status: "Approved", docstatus: 1, outcome: "Resolved", checkin_time: now(), checkout_time: now(), geofence_status: "Verified", distance_to_site_meters: 21, visit_duration_minutes: 95, feedback: { status: "Received", stars: 4, channel: "On Site", url: null } });
 
 const requests = {
 	"SR-2026-0012": { name: "SR-2026-0012", status: "Scheduled", priority: "High", issue_description: "Customer reports rising conductivity on the RO permeate over the last two weeks.", response_due_date: `${addDays(1)} 12:00:00`, sla_breached: 0 },
@@ -359,6 +361,11 @@ const api = {
 				supervisor_decision: null,
 				visit_status: "Pending Review",
 			});
+			// Customer feedback: rated on the phone, or a link to send.
+			const answer = typeof args.feedback === "string" ? JSON.parse(args.feedback || "null") : args.feedback;
+			visit.feedback = answer?.rating
+				? { status: "Received", stars: Number(answer.rating), channel: "On Site", url: null }
+				: { status: "Requested", stars: null, channel: "Feedback Link", url: `http://localhost:${PORT}/visit-feedback?token=${Math.random().toString(36).slice(2).padEnd(32, "x")}` };
 			return { visit: visit.name, data: payload(visit) };
 		}),
 	"cw_visit.api.v1.upload_evidence": (args) =>

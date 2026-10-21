@@ -298,7 +298,7 @@ export async function startVisit(name, { position = null, reason = "" } = {}) {
 	});
 }
 
-export async function submitVisit(name, { outcome, summary, representative, phone, signature, position }) {
+export async function submitVisit(name, { outcome, summary, representative, phone, signature, position, feedback = null }) {
 	const record = visits.records[name];
 	clearTimeout(saveTimers.get(name));
 	saveTimers.delete(name);
@@ -329,6 +329,7 @@ export async function submitVisit(name, { outcome, summary, representative, phon
 			customer_representative: representative || "",
 			customer_representative_phone: phone || "",
 			customer_signature: signature || null,
+			feedback,
 			...gpsPayload(position),
 		},
 		meta: { previous },

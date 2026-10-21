@@ -2,6 +2,7 @@
 import { CircleAlert, CircleCheck, LoaderCircle, Send } from "@lucide/vue";
 import { computed, reactive, ref } from "vue";
 
+import FeedbackStars from "@/components/FeedbackStars.vue";
 import SignaturePad from "@/components/SignaturePad.vue";
 import { getPosition, vibrate } from "@/lib/device";
 import { t } from "@/lib/i18n";
@@ -28,6 +29,27 @@ const form = reactive({
 });
 const submitting = ref(false);
 const stage = ref("");
+
+// The customer may rate the visit on this phone before the engineer leaves. Otherwise
+// they get a feedback link, which the engineer can send from the visit page.
+const askFeedback = computed(
+	() => Boolean(settings().request_customer_feedback) && Boolean(settings().allow_onsite_feedback)
+);
+const feedback = reactive({ mode: "now", rating: 0, problem_resolved: "", comments: "" });
+const PROBLEM_CHOICES = [
+	{ value: "Yes", label: "Yes" },
+	{ value: "Partly", label: "Partly" },
+	{ value: "No", label: "No" },
+];
+function feedbackAnswer() {
+	if (!askFeedback.value || feedback.mode !== "now" || !feedback.rating) return null;
+	return {
+		rating: feedback.rating,
+		problem_resolved: feedback.problem_resolved || null,
+		comments: feedback.comments.trim(),
+		respondent_name: representative.value || "",
+	};
+}
 
 // Text fields write straight into the working copy, so they survive leaving this step.
 const text = (field) =>
@@ -81,6 +103,7 @@ async function submit() {
 			phone: phone.value,
 			signature: form.signature,
 			position,
+			feedback: feedbackAnswer(),
 		});
 		vibrate([12, 60, 12]);
 		toast(
@@ -155,6 +178,56 @@ async function submit() {
 				<span class="field-label">Signature</span>
 				<SignaturePad v-model="form.signature" />
 			</div>
+		</div>
+
+		<div v-if="askFeedback" class="card space-y-4 p-4">
+			<div>
+				<h2 class="text-base font-bold text-ink">Customer feedback <span class="text-sm font-medium text-ink-3">(optional)</span></h2>
+				<p class="mt-1 text-sm text-ink-2">Hand the phone to the customer and let them rate the visit.</p>
+			</div>
+			<div class="grid grid-cols-2 gap-2" role="radiogroup">
+				<button
+					type="button"
+					role="radio"
+					:aria-checked="String(feedback.mode === 'now')"
+					class="chip-toggle"
+					:class="{ 'is-on': feedback.mode === 'now' }"
+					@click="feedback.mode = 'now'"
+				>Rate now</button>
+				<button
+					type="button"
+					role="radio"
+					:aria-checked="String(feedback.mode === 'link')"
+					class="chip-toggle"
+					:class="{ 'is-on': feedback.mode === 'link' }"
+					@click="feedback.mode = 'link'"
+				>Send a link later</button>
+			</div>
+			<template v-if="feedback.mode === 'now'">
+				<div>
+					<span id="feedback-rating" class="field-label text-center">How satisfied are you with this visit?</span>
+					<FeedbackStars v-model="feedback.rating" labelledby="feedback-rating" />
+				</div>
+				<div>
+					<span class="field-label">Was the problem solved?</span>
+					<div class="grid grid-cols-3 gap-2">
+						<button
+							v-for="choice in PROBLEM_CHOICES"
+							:key="choice.value"
+							type="button"
+							class="chip-toggle"
+							:class="{ 'is-on': feedback.problem_resolved === choice.value }"
+							:aria-pressed="String(feedback.problem_resolved === choice.value)"
+							@click="feedback.problem_resolved = feedback.problem_resolved === choice.value ? '' : choice.value"
+						>{{ t(choice.label) }}</button>
+					</div>
+				</div>
+				<div>
+					<label class="field-label" for="feedback-comments">Customer comments</label>
+					<textarea id="feedback-comments" v-model="feedback.comments" class="field min-h-[88px] resize-none" rows="3" maxlength="1000"></textarea>
+				</div>
+			</template>
+			<p v-else class="text-sm text-ink-2">After you submit, open the visit and tap Send feedback link to share it with the customer.</p>
 		</div>
 
 		<div v-if="blockers.length" class="rounded-card border border-line p-4 tone-warn" role="status">
