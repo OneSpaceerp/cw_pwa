@@ -1,23 +1,25 @@
 <script setup>
-import { Building2, CircleAlert, Clock, FileText, History, Info, MapPin, MessageSquareHeart, Navigation, Phone, Play, RotateCw, Share2 } from "@lucide/vue";
+import { Building2, CircleAlert, Clock, FileText, History, Info, LogOut, MapPin, MessageSquareHeart, Navigation, Phone, Play, RotateCw, Share2 } from "@lucide/vue";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import EmptyState from "@/components/EmptyState.vue";
 import FeedbackStars from "@/components/FeedbackStars.vue";
+import SiteMap from "@/components/SiteMap.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import Pill from "@/components/Pill.vue";
 import StartSheet from "@/components/StartSheet.vue";
 import SyncChip from "@/components/SyncChip.vue";
 import { call } from "@/lib/api";
-import { directionsUrl, vibrate } from "@/lib/device";
+import { directionsUrl, getPosition, vibrate } from "@/lib/device";
 import { t } from "@/lib/i18n";
 import { dateTimeLabel, dayLabel, distanceLabel, durationLabel, GEOFENCE_TONE, PRIORITY_TONE, STATUS, timeLabel } from "@/lib/format";
 import { hasCoordinates } from "@/lib/rules";
 import { isLocalId } from "@/stores/outbox";
-import { session } from "@/stores/session";
+import { presence } from "@/stores/presence";
+import { session, settings } from "@/stores/session";
 import { toast, toastError } from "@/stores/ui";
-import { clearServerError, hasUnsynced, openVisit, refreshVisit, startVisit, visits } from "@/stores/visits";
+import { checkOutVisit, clearServerError, hasUnsynced, openVisit, refreshVisit, startVisit, visits } from "@/stores/visits";
 
 const props = defineProps({ name: { type: String, required: true } });
 const router = useRouter();
@@ -49,6 +51,46 @@ const action = computed(() => {
 });
 
 const feedback = computed(() => data.value?.feedback);
+
+// Site presence: on site from check-in until check-out, measured by stores/presence.js.
+const onSite = computed(
+	() =>
+		Boolean(data.value?.checkin_time) &&
+		!data.value?.checkout_time &&
+		["In Progress", "Correction Required"].includes(data.value?.visit_status)
+);
+const live = computed(() => presence.live[props.name]);
+const rings = computed(() => {
+	if (!onSite.value || settings().enable_site_presence === 0) return [];
+	return [
+		{ meters: Number(settings().away_warning_meters) || 500, tone: "warn" },
+		{ meters: Number(settings().auto_checkout_meters) || 0, tone: "bad" },
+	];
+});
+const checkinPoint = computed(() =>
+	data.value?.checkin_latitude ? { latitude: data.value.checkin_latitude, longitude: data.value.checkin_longitude } : null
+);
+const PRESENCE_TONE = { "on-site": "tone-ok", away: "tone-warn", left: "tone-bad" };
+const checkingOut = ref(false);
+
+async function checkOutNow() {
+	checkingOut.value = true;
+	let position = null;
+	try {
+		position = await getPosition({ timeout: 10000 });
+	} catch {
+		position = null;
+	}
+	try {
+		await checkOutVisit(props.name, { position, source: "Engineer" });
+		vibrate(15);
+		toast(t("Checked out. You can finish the report and submit it later."), "ok");
+	} catch (error) {
+		toastError(error, "The check-out could not be saved.");
+	} finally {
+		checkingOut.value = false;
+	}
+}
 
 // Send the customer their feedback link: the phone's share sheet (WhatsApp, SMS, ...)
 // where there is one, WhatsApp to the representative's number otherwise.
@@ -181,8 +223,35 @@ onMounted(async () => {
 					</section>
 
 					<!-- Site -->
+					<!-- On site now: distance from the check-in point, and checking out -->
+					<section v-if="onSite" class="card space-y-3 p-5" aria-labelledby="visit-presence">
+						<h2 id="visit-presence" class="section-title flex items-center gap-1.5 px-0">
+							<MapPin :size="18" aria-hidden="true" /> You are on this visit
+						</h2>
+						<p v-if="live" class="rounded-control px-4 py-3 font-semibold" :class="PRESENCE_TONE[live.state]" role="status">
+							<template v-if="live.state === 'on-site'">{{ t("At the site · {distance} from the check-in point", { distance: distanceLabel(live.distance) }) }}</template>
+							<template v-else>{{ t("{distance} from the check-in point. Check out if you have finished on site.", { distance: distanceLabel(live.distance) }) }}</template>
+						</p>
+						<p v-else-if="presence.error" class="text-sm text-ink-2">{{ presence.error }}</p>
+						<p v-else class="text-sm text-ink-2">{{ t("Checking your location...") }}</p>
+						<p class="text-sm text-ink-3">
+							{{ t("Leaving the site checks you out automatically, at the time you left. Keep the app open on site so it can tell.") }}
+						</p>
+						<button type="button" class="btn-outline btn-block" :disabled="checkingOut" @click="checkOutNow">
+							<LogOut :size="18" aria-hidden="true" /> Check out now
+						</button>
+					</section>
+
 					<section v-if="site" class="card p-5" aria-labelledby="visit-site">
 						<h2 id="visit-site" class="section-title px-0">Site</h2>
+						<SiteMap
+							v-if="canNavigate || checkinPoint"
+							class="mb-3"
+							:site="site"
+							:checkin="checkinPoint"
+							:me="live || null"
+							:rings="rings"
+						/>
 						<p class="flex items-start gap-2 font-bold text-ink">
 							<Building2 :size="18" class="mt-0.5 shrink-0 text-ink-3" aria-hidden="true" />
 							{{ site.location_name }}
@@ -244,7 +313,10 @@ onMounted(async () => {
 							<div v-if="data.geofence_reason" class="text-sm text-ink-2">Reason given: {{ data.geofence_reason }}</div>
 							<div v-if="data.checkout_time" class="flex justify-between gap-3">
 								<dt class="text-ink-2">Checked out</dt>
-								<dd class="font-semibold">{{ dateTimeLabel(data.checkout_time) }}</dd>
+								<dd class="text-end font-semibold">
+									{{ dateTimeLabel(data.checkout_time) }}
+									<span v-if="data.checkout_source === 'Auto - Left Site'" class="block text-xs font-medium text-ink-3">{{ t("automatically, when you left the site") }}</span>
+								</dd>
 							</div>
 							<div v-if="data.visit_duration_minutes" class="flex justify-between gap-3">
 								<dt class="text-ink-2">Time on site</dt>

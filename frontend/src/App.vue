@@ -6,6 +6,7 @@ import ConfirmDialog from "./components/ConfirmDialog.vue";
 import StatusBanners from "./components/StatusBanners.vue";
 import TabBar from "./components/TabBar.vue";
 import Toasts from "./components/Toasts.vue";
+import { startPresence } from "./stores/presence";
 
 const route = useRoute();
 const router = useRouter();
@@ -21,6 +22,8 @@ const onRenamed = ({ detail }) => {
 };
 
 onMounted(() => {
+	// Follows the phone's position while a visit is checked in (see stores/presence.js).
+	startPresence();
 	window.addEventListener("cw:signed-out", onSignedOut);
 	window.addEventListener("cw:visit-renamed", onRenamed);
 });

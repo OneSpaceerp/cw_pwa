@@ -36,6 +36,9 @@ const settings = {
 	require_site_photo_for_onsite_visits: 1,
 	request_customer_feedback: 1,
 	allow_onsite_feedback: 1,
+	enable_site_presence: 1,
+	away_warning_meters: 500,
+	auto_checkout_meters: 1000,
 };
 
 const masters = {
@@ -262,6 +265,70 @@ function idempotent(key, run) {
 	return result;
 }
 
+// ------------------------------------------------------------- KPI sample
+function performanceSample() {
+	const cats = [
+		["Maintenance", "الصيانة", 40, 86.4], ["Sales", "المبيعات", 20, 64.0], ["Kit & Tools Readiness", "جاهزية شنطة الأجهزة والأدوات", 15, 95.0],
+		["Reports to Management", "تقديم التقارير للإدارة", 15, 83.3], ["Appearance & Safety", "المظهر العام والسلامة", 10, null],
+	];
+	const crit = [
+		["CW-MNT-01", "Periodic Visit Plan Adherence", "الالتزام بجدول الزيارات الدورية", "Maintenance", 30, "Visits: Plan Adherence", 6, 8],
+		["CW-MNT-02", "Fault Response Time", "زمن الاستجابة للأعطال", "Maintenance", 25, "Service Requests: Response Within SLA", 5, 5],
+		["CW-MNT-03", "Tickets Closed On Time", "إغلاق التذاكر في موعدها", "Maintenance", 25, "Service Requests: Closed On Time", 4, 5],
+		["CW-MNT-04", "Customer Satisfaction", "رضا العميل", "Maintenance", 20, "Visits: Customer Satisfaction", 88, 100],
+		["CW-SAL-01", "Sales Target Achievement", "تحقيق تارجت المبيعات", "Sales", 50, "Sales: Revenue vs Target", 42000, 80000],
+		["CW-SAL-02", "New Customers", "العملاء الجدد", "Sales", 25, "Sales: New Customers vs Target", 1, 2],
+		["CW-SAL-03", "Visits & Technical Offers", "عدد الزيارات والعروض الفنية", "Sales", 25, "Sales: Quotations vs Target", 6, 6],
+		["CW-KIT-01", "Complete Instruments & Tools", "اكتمال الأجهزة والأدوات", "Kit & Tools Readiness", 40, "Manual Entry", null, null, 100],
+		["CW-KIT-02", "Valid & Calibrated Instruments", "صلاحية ومعايرة الأجهزة", "Kit & Tools Readiness", 40, "Manual Entry", null, null, 90],
+		["CW-KIT-03", "Supplies Available", "توفر المستلزمات", "Kit & Tools Readiness", 20, "Manual Entry", null, null, 95],
+		["CW-REP-01", "Visit Reports", "تقارير الزيارات", "Reports to Management", 40, "Visits: Reports On Time", 5, 6],
+		["CW-REP-02", "Technical Reports", "التقارير الفنية", "Reports to Management", 30, "Manual Entry", null, null, 80],
+		["CW-REP-03", "Sales & Other Reports", "تقارير المبيعات وباقي التقارير", "Reports to Management", 30, "Manual Entry", null, null, 86],
+		["CW-APP-01", "Uniform", "الزي الرسمي", "Appearance & Safety", 40, "Manual Entry", null, null, null],
+		["CW-APP-02", "Safety Vest", "الـ Vest", "Appearance & Safety", 30, "Manual Entry", null, null, null],
+		["CW-APP-03", "Safety Equipment", "معدات السلامة (Safety)", "Appearance & Safety", 30, "Manual Entry", null, null, null],
+	];
+	const weights = Object.fromEntries(cats.map((c) => [c[0], c[2]]));
+	return {
+		available: true,
+		employee: "EMP-0007",
+		plan: { name: "KPI-PLAN-2026-0007", period: "Q4 2026", template: "C-Water Engineer Scorecard" },
+		rules: { pass_total: 85, min_category: 70, months_required: 3, missing_policy: "Exclude and Reweight" },
+		month: {
+			start: "2026-11-01", end: "2026-11-30", total: 81.6, status: "Needs Improvement", reasons: [],
+			categories: cats.map(([category, arabic_name, weight, score]) => ({
+				category, arabic_name, weight, score, min_score: 70, meets_minimum: score == null ? null : score >= 70, measured_weight: score == null ? 0 : 100,
+			})),
+			criteria: crit.map(([code, name, arabic_name, category, weight, source, actual, required, manual]) => ({
+				code, name, arabic_name, category, weight, source, automatic: source !== "Manual Entry", actual, required,
+				achievement: source === "Manual Entry" ? manual ?? null : Math.min(100, Math.round((actual / required) * 1000) / 10),
+				note: "", category_weight: weights[category],
+			})),
+			review: null,
+		},
+		quarter: {
+			period: "Q4 2026", months_required: 3,
+			reviews: [{ month: "2026-10-01", total: 88.2, status: "On Track" }],
+			evaluation: null,
+		},
+		recommendations: [
+			{ kind: "category_minimum", category: "Sales", impact: 1.2, priority: true, params: { score: 64, min: 70, gap: 6 } },
+			{ kind: "total_gap", impact: 3.4, priority: true, params: { total: 81.6, pass: 85, gap: 3.4 } },
+			{ kind: "sales_gap", criterion: "CW-SAL-01", criterion_name: "Sales Target Achievement", category: "Sales", impact: 4.75, priority: false,
+			  params: { achievement: 52.5, actual: 42000, required: 80000, remaining: 38000, days_left: 19, per_day: 2000 } },
+			{ kind: "visits_pending", criterion: "CW-MNT-01", criterion_name: "Periodic Visit Plan Adherence", category: "Maintenance", impact: 3.0, priority: false,
+			  params: { achievement: 75, actual: 6, required: 8, missed: 2, planned_remaining: 5 } },
+			{ kind: "customers_gap", criterion: "CW-SAL-02", criterion_name: "New Customers", category: "Sales", impact: 2.5, priority: false,
+			  params: { achievement: 50, actual: 1, required: 2, remaining: 1, days_left: 19, per_day: 0.05 } },
+			{ kind: "close_on_time", criterion: "CW-MNT-03", criterion_name: "Tickets Closed On Time", category: "Maintenance", impact: 2.0, priority: false,
+			  params: { achievement: 80, actual: 4, required: 5, missed: 1 } },
+			{ kind: "ask_feedback", impact: 0, priority: false, params: { count: 3 } },
+			{ kind: "awaiting_review", impact: 0, priority: false, params: { count: 3, criteria: [] } },
+		],
+	};
+}
+
 // -------------------------------------------------------------- endpoints
 const api = {
 	"cw_pwa.api.boot": (_args, session) =>
@@ -270,6 +337,7 @@ const api = {
 					api_version: "1", user: USER, full_name: "Omar Hassan", user_image: null, language: "en",
 					roles: ["CW Visit Engineer"], has_access: true, is_reviewer: false, employee: "EMP-0007", employee_name: "Omar Hassan",
 					server_time: now(), settings, csrf_token: "mock-csrf-token", site_name: "mock.local", push_public_key: null,
+					features: { kpi: true },
 				}
 			: { user: "Guest", site_name: "mock.local" },
 
@@ -333,6 +401,20 @@ const api = {
 			start(visit, args);
 			return { visit: visit.name, data: payload(visit) };
 		}),
+	"cw_visit.api.v1.checkout_visit": (args) =>
+		idempotent(args.idempotency_key, () => {
+			const visit = getVisit(args.name, true);
+			if (!visit.checkout_time) {
+				const auto = args.source === "Auto - Left Site";
+				visit.checkout_time = auto && args.left_site_at ? args.left_site_at : now();
+				visit.checkout_source = auto ? "Auto - Left Site" : "Engineer";
+				if (args.left_site_at) visit.last_on_site_time = args.left_site_at;
+				const minutes = (Date.parse(visit.checkout_time.replace(" ", "T")) - Date.parse(String(visit.checkin_time).replace(" ", "T"))) / 60000;
+				if (minutes >= 0) visit.visit_duration_minutes = Math.round(minutes * 10) / 10;
+			}
+			return { visit: visit.name, data: payload(visit) };
+		}),
+	"cw_kpi_management.mobile.my_performance": () => performanceSample(),
 	"cw_visit.api.v1.save_draft": (args) =>
 		idempotent(args.idempotency_key, () => {
 			const visit = getVisit(args.name, true);

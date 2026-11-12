@@ -30,6 +30,8 @@ def boot() -> dict:
 		"site_name": frappe.local.site,
 		# Public by design: browsers need it to subscribe. Absent when push is off.
 		"push_public_key": push.public_key() if has_app_access() else None,
+		# Optional apps the phone app can show screens for.
+		"features": {"kpi": "cw_kpi_management" in frappe.get_installed_apps()},
 	}
 
 

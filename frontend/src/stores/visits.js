@@ -40,6 +40,7 @@ const SERVER_FIELDS = [
 	"checkin_accuracy", "distance_to_site_meters", "geofence_status", "geofence_reason", "checkout_time",
 	"visit_duration_minutes", "submitted_for_review_on", "supervisor_decision", "supervisor_remarks",
 	"review_timestamp", "site", "rules", "request", "evidence", "service_location", "service_request", "outcome",
+	"checkout_source", "last_on_site_time", "checkout_latitude", "checkout_longitude",
 ];
 
 export const visits = reactive({
@@ -256,7 +257,7 @@ export const photoCount = (record) => (record.data.evidence?.length || 0) + reco
 
 // -------------------------------------------------------------------- actions
 
-function localTimestamp() {
+export function localTimestamp() {
 	const now = new Date();
 	const pad = (n) => String(n).padStart(2, "0");
 	return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
@@ -296,6 +297,39 @@ export async function startVisit(name, { position = null, reason = "" } = {}) {
 		payload: { ...gpsPayload(position), reason: reason || null },
 		meta: { previous: pick(previous, SERVER_FIELDS) },
 	});
+}
+
+/**
+ * Check out of the site without handing the visit in: by the engineer ("Engineer"),
+ * or by the app when they moved away ("Auto - Left Site"). An automatic check-out
+ * carries the last time they were seen on site, which becomes the check-out time.
+ */
+export async function checkOutVisit(name, { position = null, source = "Engineer", leftSiteAt = null, distance = null } = {}) {
+	const record = visits.records[name];
+	if (!record || record.data.checkout_time) return false;
+	const previous = pick(db.plain(record.data), SERVER_FIELDS);
+	const stamp = source === "Auto - Left Site" && leftSiteAt ? leftSiteAt : localTimestamp();
+	record.data.checkout_time = stamp;
+	record.data.checkout_source = source;
+	if (leftSiteAt) record.data.last_on_site_time = leftSiteAt;
+	if (record.data.checkin_time) {
+		const minutes = (Date.parse(stamp.replace(" ", "T")) - Date.parse(String(record.data.checkin_time).replace(" ", "T"))) / 60000;
+		if (Number.isFinite(minutes) && minutes >= 0) record.data.visit_duration_minutes = Math.round(minutes * 10) / 10;
+	}
+	await persist(record);
+	await enqueue({
+		action: "checkout_visit",
+		visit: name,
+		label: source === "Auto - Left Site" ? "Automatic check-out" : "Check out",
+		payload: {
+			...gpsPayload(position),
+			source,
+			left_site_at: leftSiteAt,
+			distance: distance == null ? null : Math.round(distance),
+		},
+		meta: { previous },
+	});
+	return true;
 }
 
 export async function submitVisit(name, { outcome, summary, representative, phone, signature, position, feedback = null }) {
@@ -498,6 +532,9 @@ async function send(op) {
 		case "submit_visit":
 			return post(`${API}submit_visit`, { name: op.visit, ...op.payload, ...key });
 
+		case "checkout_visit":
+			return post(`${API}checkout_visit`, { name: op.visit, ...op.payload, ...key });
+
 		case "upload_evidence": {
 			const blob = await db.get("blobs", op.payload.blobId);
 			if (!blob) throw new Error("The photo is no longer on this device.");
@@ -539,7 +576,7 @@ async function onSuccess(op, result) {
 		applyServer(record, result.data, { sentRev: op.sentRev ?? null, op });
 	}
 
-	if (["start_visit", "submit_visit"].includes(op.action)) refreshList();
+	if (["start_visit", "submit_visit", "checkout_visit"].includes(op.action)) refreshList();
 }
 
 /** The server created the visit: swap the temporary id for the real one everywhere. */

@@ -14,6 +14,7 @@ const routes = [
 	{ path: "/profile", name: "profile", component: () => import("./views/Profile.vue"), meta: { tab: "profile", depth: 0 } },
 
 	{ path: "/sync", name: "sync", component: () => import("./views/Sync.vue"), meta: { depth: 1 } },
+	{ path: "/performance", name: "performance", component: () => import("./views/Performance.vue"), meta: { depth: 1 } },
 	{ path: "/visits/new", name: "visit-new", component: () => import("./views/NewVisit.vue"), meta: { depth: 1 } },
 	{ path: "/visits/:name", name: "visit", component: () => import("./views/VisitDetail.vue"), props: true, meta: { depth: 1 } },
 	{

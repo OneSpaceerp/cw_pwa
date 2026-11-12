@@ -50,6 +50,19 @@ registerRoute(
 	})
 );
 
+// Map tiles (OpenStreetMap). Kept small and short-lived, as the tile usage policy asks:
+// enough to redraw the sites an engineer works at, not an offline copy of the map.
+registerRoute(
+	({ url }) => url.hostname === "tile.openstreetmap.org",
+	new CacheFirst({
+		cacheName: "cw-map-tiles",
+		plugins: [
+			new CacheableResponsePlugin({ statuses: [0, 200] }),
+			new ExpirationPlugin({ maxEntries: 400, maxAgeSeconds: 7 * 86400, purgeOnQuotaError: true }),
+		],
+	})
+);
+
 // App shell. Every in-app URL is the same HTML document, so one cache entry
 // serves them all: network first, last good copy when offline or slow.
 registerRoute(

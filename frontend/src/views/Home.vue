@@ -1,5 +1,5 @@
 <script setup>
-import { Bell, CalendarCheck2, ChevronRight, ClipboardCheck, CloudUpload, MapPin, Play, RotateCw } from "@lucide/vue";
+import { Bell, CalendarCheck2, ChevronRight, ClipboardCheck, CloudUpload, MapPin, Play, RotateCw, Target } from "@lucide/vue";
 import { computed, onMounted, ref } from "vue";
 
 import BottomSheet from "@/components/BottomSheet.vue";
@@ -14,6 +14,7 @@ import { markAsked, wasAsked } from "@/lib/permissions";
 import { pwa } from "@/lib/pwa";
 import { alerts, loadAlerts } from "@/stores/alerts";
 import { failedCount, waitingCount } from "@/stores/outbox";
+import { kpiEnabled, loadCachedPerformance, performance, refreshPerformance } from "@/stores/performance";
 import { session } from "@/stores/session";
 import { syncNow } from "@/stores/sync";
 import { listItems, visits } from "@/stores/visits";
@@ -76,9 +77,12 @@ function closePermissions() {
 	markAsked();
 }
 
+const myScore = computed(() => (performance.data?.available ? performance.data.month?.total : null));
+
 onMounted(() => {
 	syncNow();
 	loadAlerts();
+	if (kpiEnabled()) loadCachedPerformance().then(refreshPerformance);
 	if (!wasAsked()) permissionsOpen.value = true;
 });
 </script>
@@ -174,6 +178,16 @@ onMounted(() => {
 						<span class="min-w-0 flex-1">
 							<span class="block font-bold text-ink">My visits</span>
 							<span class="block text-sm text-ink-2">{{ t("{count} to do", { count: counts.open }) }}</span>
+						</span>
+						<ChevronRight :size="20" class="text-brand-strong" aria-hidden="true" />
+					</RouterLink>
+					<RouterLink v-if="kpiEnabled()" :to="{ name: 'performance' }" class="link-row border-t border-line">
+						<span class="icon-tile" aria-hidden="true"><Target :size="22" /></span>
+						<span class="min-w-0 flex-1">
+							<span class="block font-bold text-ink">My performance</span>
+							<span class="block text-sm text-ink-2">
+								{{ myScore != null ? t("{score}% this month · tips to score higher", { score: Math.round(myScore) }) : t("Targets and tips to score higher") }}
+							</span>
 						</span>
 						<ChevronRight :size="20" class="text-brand-strong" aria-hidden="true" />
 					</RouterLink>

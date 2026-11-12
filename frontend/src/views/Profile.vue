@@ -1,5 +1,5 @@
 <script setup>
-import { BellRing, ChevronRight, CloudUpload, Download, Globe, LogOut, RefreshCw, SquarePlus } from "@lucide/vue";
+import { BellRing, ChevronRight, CloudUpload, Download, Globe, LogOut, RefreshCw, SquarePlus, Target } from "@lucide/vue";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
@@ -13,6 +13,7 @@ import { permissions, sendTestNotification } from "@/lib/permissions";
 import { applyUpdate, promptInstall, pwa, storageEstimate } from "@/lib/pwa";
 import { loadMasters, masters } from "@/stores/masters";
 import { failedCount, waitingCount } from "@/stores/outbox";
+import { kpiEnabled } from "@/stores/performance";
 import { logout, session } from "@/stores/session";
 import { confirm, toast } from "@/stores/ui";
 
@@ -138,6 +139,15 @@ onMounted(async () => {
 						<BellRing :size="18" aria-hidden="true" />
 						{{ testing ? t("Sending") : t("Send a test notification") }}
 					</button>
+				</section>
+
+				<section v-if="kpiEnabled()">
+					<h2 class="section-title">Performance</h2>
+					<RouterLink :to="{ name: 'performance' }" class="card link-row">
+						<span class="icon-tile" aria-hidden="true"><Target :size="22" /></span>
+						<span class="flex-1 font-bold text-ink">My performance</span>
+						<ChevronRight :size="20" class="text-brand-strong" aria-hidden="true" />
+					</RouterLink>
 				</section>
 
 				<section>
