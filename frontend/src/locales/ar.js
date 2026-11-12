@@ -595,4 +595,6 @@ export default {
 	// platform names, sent to the server as they are
 	Android: "Android",
 	iOS: "iOS",
+	"Push:": "الإشعارات:",
+	"· server:": "· الخادم:",
 };

@@ -9,7 +9,7 @@ import PermissionsList from "@/components/PermissionsList.vue";
 import * as db from "@/lib/db";
 import { ago, initials } from "@/lib/format";
 import { i18n, LANGUAGES, setLanguage, t } from "@/lib/i18n";
-import { permissions, sendTestNotification } from "@/lib/permissions";
+import { nativePush, permissions, sendTestNotification } from "@/lib/permissions";
 import { applyUpdate, promptInstall, pwa, storageEstimate } from "@/lib/pwa";
 import { loadMasters, masters } from "@/stores/masters";
 import { failedCount, waitingCount } from "@/stores/outbox";
@@ -129,6 +129,9 @@ onMounted(async () => {
 					<div class="card px-4 py-1">
 						<PermissionsList />
 					</div>
+					<p v-if="nativePush.status" class="mt-2 px-1 text-xs text-ink-3" dir="ltr">
+						Push: {{ nativePush.status }}<template v-if="nativePush.reportError"> · server: {{ nativePush.reportError }}</template>
+					</p>
 					<button
 						v-if="permissions.notifications === 'granted'"
 						type="button"

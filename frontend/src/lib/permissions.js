@@ -161,8 +161,16 @@ let nativePushListening = false;
 let registrationTimer = null;
 
 /** Tell the server what happened, shown on the phone's CW App Device (Push Status). */
+/** Native push, as last seen on this phone: shown in Profile, and sent to the server. */
+export const nativePush = reactive({ status: "", reportError: "" });
+
 function reportPush(status) {
-	post("cw_pwa.native.report_push_status", { status }).catch(() => {});
+	nativePush.status = status;
+	post("cw_pwa.native.report_push_status", { status })
+		.then(() => (nativePush.reportError = ""))
+		.catch((error) => {
+			nativePush.reportError = `${error?.status || ""} ${error?.message || error}`.trim();
+		});
 }
 
 /**
@@ -190,9 +198,10 @@ async function registerNativePush() {
 			nativePushListening = true;
 			await PushNotifications.addListener("registration", ({ value }) => {
 				clearTimeout(registrationTimer);
-				post("cw_pwa.native.register_push_token", { token: value }).catch((error) =>
-					reportPush(`Token not saved: ${error?.message || error}`)
-				);
+				nativePush.status = "Firebase token received; saving it on the server...";
+				post("cw_pwa.native.register_push_token", { token: value })
+					.then(() => (nativePush.status = "Registered"))
+					.catch((error) => reportPush(`Token not saved: ${error?.status || ""} ${error?.message || error}`));
 			});
 			await PushNotifications.addListener("registrationError", (error) => {
 				clearTimeout(registrationTimer);
