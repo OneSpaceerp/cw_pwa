@@ -34,6 +34,16 @@ const TARGETS = {
 		swUrl: "/sw.js",
 		icons: "/manifest",
 	},
+	// The iOS / Android app (Capacitor). The files ship inside the app and talk to the
+	// ERPNext site named by CW_SERVER with a device token; no service worker.
+	native: {
+		base: "/",
+		outDir: "../dist-native",
+		appBase: "",
+		swUrl: "",
+		icons: "/manifest",
+		native: true,
+	},
 };
 
 export default defineConfig(({ mode }) => {
@@ -49,6 +59,11 @@ export default defineConfig(({ mode }) => {
 			__SW_URL__: JSON.stringify(target.swUrl),
 			__ICONS__: JSON.stringify(target.icons),
 			__APP_VERSION__: JSON.stringify(process.env.npm_package_version || "dev"),
+			__NATIVE__: JSON.stringify(Boolean(target.native)),
+			__NATIVE_SERVER__: JSON.stringify((process.env.CW_SERVER || "https://onespace.cw-eg.com").replace(/\/+$/, "")),
+			// On only once a Firebase project is added (google-services.json): registering
+			// for push without it crashes the Android app.
+			__NATIVE_PUSH__: JSON.stringify(process.env.CW_NATIVE_PUSH === "1"),
 		},
 		plugins: [
 			// Static template text is routed through $t() at compile time (see the plugin file).
@@ -60,7 +75,7 @@ export default defineConfig(({ mode }) => {
 				// The icons are committed once, in the Frappe app, where ERPNext serves them
 				// from /assets. The standalone bundle has no such folder, so it carries a copy.
 				generateBundle() {
-					if (mode !== "standalone") return;
+					if (mode !== "standalone" && mode !== "native") return;
 					const folder = path.resolve(here, "../cw_pwa/public/manifest");
 					for (const file of fs.readdirSync(folder)) {
 						this.emitFile({ type: "asset", fileName: `manifest/${file}`, source: fs.readFileSync(path.join(folder, file)) });

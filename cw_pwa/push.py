@@ -111,7 +111,10 @@ def on_notification_log(doc, method=None):
 	if doc.document_type not in NOTIFIED_DOCTYPES or not doc.for_user:
 		return
 	try:
-		wanted = is_enabled() and frappe.db.exists(SUBSCRIPTION, {"user": doc.for_user})
+		wanted = is_enabled() and (
+			frappe.db.exists(SUBSCRIPTION, {"user": doc.for_user})
+			or (native_enabled() and frappe.db.exists(DEVICE, {"user": doc.for_user, "enabled": 1, "push_token": ["is", "set"]}))
+		)
 	except Exception:
 		# A push problem must never stop the alert itself from being saved.
 		frappe.log_error(title="CW PWA: could not queue a push")
@@ -166,4 +169,83 @@ def send_to_user(user: str, title: str, body: str = "", url: str = APP_ROUTE, ta
 			failed += 1
 			frappe.log_error(title="CW PWA: push failed")
 
-	return {"sent": sent, "failed": failed, "removed": removed}
+	native = send_native(user, title, body, url, tag)
+	return {
+		"sent": sent + native["sent"],
+		"failed": failed + native["failed"],
+		"removed": removed + native["removed"],
+	}
+
+
+# ------------------------------------------------------------------ native app
+#
+# The iOS / Android app is notified through Firebase Cloud Messaging (HTTP v1), which
+# also reaches iPhones through Apple's service once the APNs key is in the Firebase
+# project. The service-account key file stays on the server, outside the database:
+#
+#     bench --site <site> set-config cw_pwa_fcm_credentials /home/<user>/firebase-service-account.json
+#
+# Without it, native push is off and the web push above is unaffected.
+
+DEVICE = "CW App Device"
+FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
+
+
+def native_enabled() -> bool:
+	return bool(frappe.conf.get("cw_pwa_fcm_credentials"))
+
+
+def _fcm_session():
+	from google.auth.transport.requests import AuthorizedSession
+	from google.oauth2 import service_account
+
+	path = frappe.conf.get("cw_pwa_fcm_credentials")
+	credentials = service_account.Credentials.from_service_account_file(path, scopes=[FCM_SCOPE])
+	return AuthorizedSession(credentials), credentials.project_id
+
+
+def send_native(user: str, title: str, body: str = "", url: str = APP_ROUTE, tag: str | None = None) -> dict:
+	result = {"sent": 0, "failed": 0, "removed": 0}
+	if not native_enabled():
+		return result
+	devices = frappe.get_all(
+		DEVICE,
+		filters={"user": user, "enabled": 1, "push_token": ["is", "set"]},
+		fields=["name", "push_token"],
+	)
+	if not devices:
+		return result
+	try:
+		session, project = _fcm_session()
+	except Exception:
+		frappe.log_error(title="CW PWA: Firebase credentials could not be loaded")
+		result["failed"] = len(devices)
+		return result
+
+	endpoint = f"https://fcm.googleapis.com/v1/projects/{project}/messages:send"
+	for device in devices:
+		message = {
+			"message": {
+				"token": device.push_token,
+				"notification": {"title": title, "body": body},
+				# The app reads `url` when the notification is tapped.
+				"data": {"url": url or APP_ROUTE, "tag": tag or ""},
+				"android": {"priority": "high", **({"notification": {"tag": tag[:64]}} if tag else {})},
+				"apns": {"payload": {"aps": {"sound": "default"}}},
+			}
+		}
+		try:
+			response = session.post(endpoint, json=message, timeout=10)
+		except Exception:
+			result["failed"] += 1
+			frappe.log_error(title="CW PWA: native push failed")
+			continue
+		if response.ok:
+			result["sent"] += 1
+		elif response.status_code in (404, 410) or "UNREGISTERED" in response.text:
+			frappe.db.set_value(DEVICE, device.name, "push_token", None, update_modified=False)
+			result["removed"] += 1
+		else:
+			result["failed"] += 1
+			frappe.log_error(title="CW PWA: native push failed", message=f"{response.status_code}: {response.text[:500]}")
+	return result

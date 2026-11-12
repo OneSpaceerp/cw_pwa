@@ -2,6 +2,7 @@
 import { Camera, CircleAlert, CloudUpload, FileText, Image as ImageIcon, Trash2 } from "@lucide/vue";
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 
+import { fileSrc } from "@/lib/api";
 import { options } from "@/stores/masters";
 import { t } from "@/lib/i18n";
 import { settings } from "@/stores/session";
@@ -38,11 +39,24 @@ watch(
 );
 onBeforeUnmount(() => Object.values(previews).forEach((url) => URL.revokeObjectURL(url)));
 
+// Uploaded photos. In the native app a private file is fetched with the device token.
+const remote = reactive({});
+watch(
+	() => (props.record.data.evidence || []).map((row) => row.file).filter(Boolean),
+	async (files) => {
+		for (const file of files) if (!(file in remote)) remote[file] = await fileSrc(file);
+	},
+	{ immediate: true }
+);
+onBeforeUnmount(() =>
+	Object.values(remote).forEach((url) => String(url).startsWith("blob:") && URL.revokeObjectURL(url))
+);
+
 const photos = computed(() => [
 	...(props.record.data.evidence || []).map((row) => ({
 		key: row._key || row.name,
 		name: row.name,
-		url: row.file,
+		url: remote[row.file],
 		isImage: /\.(jpe?g|png|webp)$/i.test(row.file || ""),
 		category: row.category,
 		caption: row.caption,

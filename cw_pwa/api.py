@@ -22,8 +22,11 @@ def boot() -> dict:
 	if frappe.session.user == "Guest":
 		return {"user": "Guest", "site_name": frappe.local.site}
 
-	token = frappe.sessions.get_csrf_token()
-	frappe.db.commit()  # nosemgrep - persists a token minted on this GET
+	# The native app signs every request with its device token: no session, no CSRF token.
+	native = bool(getattr(frappe.local, "cw_device", None))
+	token = "" if native else frappe.sessions.get_csrf_token()
+	if not native:
+		frappe.db.commit()  # nosemgrep - persists a token minted on this GET
 	return {
 		**visit_api.bootstrap(),
 		"csrf_token": token,
@@ -32,6 +35,7 @@ def boot() -> dict:
 		"push_public_key": push.public_key() if has_app_access() else None,
 		# Optional apps the phone app can show screens for.
 		"features": {"kpi": "cw_kpi_management" in frappe.get_installed_apps()},
+		"native": native,
 	}
 
 

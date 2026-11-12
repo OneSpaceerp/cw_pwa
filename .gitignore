@@ -11,3 +11,9 @@ node_modules/
 cw_pwa/public/frontend/
 cw_pwa/www/cw.html
 dist/
+
+# Native app (Capacitor): web bundle copied into the app, and per-project Firebase config.
+dist-native/
+frontend/android/app/src/main/assets/public/
+frontend/android/app/google-services.json
+frontend/ios/App/App/GoogleService-Info.plist

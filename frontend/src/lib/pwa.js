@@ -1,13 +1,15 @@
 /** Service worker registration, the update lifecycle, install prompts and storage. */
 import { reactive } from "vue";
 
+import { isNative } from "./native";
+
 const UPDATE_CHECK_MS = 60 * 60 * 1000;
 const INSTALL_DISMISSED_KEY = "cw:install-dismissed";
 
 export const pwa = reactive({
 	updateReady: false,
 	canInstall: false,
-	installed: isStandalone(),
+	installed: isNative() || isStandalone(),
 	isIos: /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1),
 });
 
@@ -21,6 +23,8 @@ export function isStandalone() {
 }
 
 export async function initPwa() {
+	// The native app ships its files inside the app: no service worker, nothing to install.
+	if (isNative()) return;
 	window.addEventListener("beforeinstallprompt", (event) => {
 		event.preventDefault();
 		deferredPrompt = event;

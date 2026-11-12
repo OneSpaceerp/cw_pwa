@@ -1,9 +1,11 @@
 /**
  * Thin client for Frappe's /api/method endpoints.
  *
- * Every request is same-origin and relies on the session cookie. The app never
- * talks to another host directly: a standalone deployment proxies /api instead.
+ * Web app: every request is same-origin and relies on the session cookie (a
+ * standalone deployment proxies /api). Native app: requests go to the ERPNext site
+ * the app is set up for, signed with the phone's device token (see lib/native.js).
  */
+import { deviceToken, isNative, serverFileUrl, serverUrl } from "./native";
 
 const DEFAULT_TIMEOUT_MS = 30000;
 export const BOOT_METHOD = "cw_pwa.api.boot";
@@ -81,9 +83,11 @@ async function isSignedOut() {
 }
 
 async function request(method, params, { post: isPost = false, formData = null, timeout = DEFAULT_TIMEOUT_MS }) {
-	const url = new URL(`/api/method/${method}`, window.location.origin);
+	const native = isNative();
+	const url = new URL(`/api/method/${method}`, native ? serverUrl() : window.location.origin);
 	const headers = { Accept: "application/json" };
-	const init = { method: isPost ? "POST" : "GET", credentials: "same-origin", headers };
+	const init = { method: isPost ? "POST" : "GET", credentials: native ? "omit" : "same-origin", headers };
+	if (native && deviceToken()) headers["X-CW-Device-Token"] = deviceToken();
 
 	if (!isPost) {
 		for (const [key, value] of Object.entries(params)) {
@@ -96,7 +100,7 @@ async function request(method, params, { post: isPost = false, formData = null, 
 		headers["Content-Type"] = "application/json";
 		init.body = JSON.stringify(dropEmpty(params));
 	}
-	if (isPost && csrfToken) headers["X-Frappe-CSRF-Token"] = csrfToken;
+	if (isPost && csrfToken && !native) headers["X-Frappe-CSRF-Token"] = csrfToken;
 
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeout);
@@ -129,6 +133,26 @@ async function request(method, params, { post: isPost = false, formData = null, 
 		});
 	}
 	return body?.message;
+}
+
+/**
+ * A server file usable in an <img>. On the web it is the path itself. In the native
+ * app a private file needs the device token, which an <img> cannot send, so it is
+ * fetched and shown from memory (revoke the URL when done).
+ */
+export async function fileSrc(path) {
+	if (!path || !isNative() || /^(blob:|data:)/.test(path)) return path;
+	if (!path.startsWith("/private/")) return serverFileUrl(path);
+	try {
+		const response = await fetch(serverFileUrl(path), {
+			headers: { "X-CW-Device-Token": deviceToken() },
+			credentials: "omit",
+		});
+		if (!response.ok) return "";
+		return URL.createObjectURL(await response.blob());
+	} catch {
+		return "";
+	}
 }
 
 function dropEmpty(params) {

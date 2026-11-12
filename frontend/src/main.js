@@ -4,6 +4,7 @@ import { createApp } from "vue";
 
 import App from "./App.vue";
 import { initLanguage, t } from "./lib/i18n";
+import { initNativeShell } from "./lib/native-shell";
 import { initPwa } from "./lib/pwa";
 import { followStatusBar } from "./lib/statusbar";
 import router from "./router";
@@ -32,6 +33,7 @@ async function start() {
 	await router.isReady();
 	await hideSplash();
 	app.mount("#app");
+	initNativeShell(router);
 	initPwa();
 
 	// The outbox is flushed whenever there is a reason to believe it can get through.

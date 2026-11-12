@@ -1,0 +1,28 @@
+{
+	"appId": "com.cwater.visits",
+	"appName": "C-Water Visits",
+	"webDir": "../dist-native",
+	"android": {
+		"useLegacyBridge": true,
+		"allowMixedContent": false
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 400,
+			"launchAutoHide": true,
+			"backgroundColor": "#FFFFFF",
+			"showSpinner": false
+		},
+		"LocalNotifications": {
+			"iconColor": "#0097B2",
+			"smallIcon": "ic_stat_cw"
+		},
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
+		}
+	}
+}

@@ -17,11 +17,19 @@
  * A web app receives positions only while it is open on screen. When the engineer
  * comes back to it, one fresh reading settles what happened while it was closed.
  * The server's open-visit reminder covers an app that is never reopened.
+ *
+ * The native app (iOS / Android) follows the position in the background too, through
+ * the background-geolocation plugin: on Android as a foreground service with its own
+ * notification, so warnings and the automatic check-out work with the app closed or
+ * the phone locked.
  */
 import { reactive } from "vue";
 
 import * as db from "@/lib/db";
 import { vibrate } from "@/lib/device";
+import { registerPlugin } from "@capacitor/core";
+
+import { isNative } from "@/lib/native";
 import { t } from "@/lib/i18n";
 import { hasCoordinates, haversine } from "@/lib/rules";
 import { settings } from "@/stores/session";
@@ -176,6 +184,25 @@ function remind(data, distance) {
 
 /** A system notification when allowed (it shows even if the app is in the background), else a toast. */
 async function notify(title, body, visit) {
+	if (isNative()) {
+		try {
+			const { LocalNotifications } = await import("@capacitor/local-notifications");
+			await LocalNotifications.schedule({
+				notifications: [
+					{
+						id: Math.floor(Date.now() % 2147483647),
+						title,
+						body,
+						extra: { url: `/visits/${visit}` },
+					},
+				],
+			});
+			if (document.visibilityState === "visible") toast(body, "warn", 6000);
+			return;
+		} catch {
+			// fall through to the toast
+		}
+	}
 	try {
 		if ("Notification" in window && Notification.permission === "granted" && navigator.serviceWorker) {
 			const registration = await navigator.serviceWorker.ready;
@@ -214,8 +241,75 @@ function onError(error) {
 			: t("Waiting for a location fix.");
 }
 
+// ----------------------------------------------------- native: in the background too
+
+let nativeWatcher = null; // watcher id, or a promise while it starts
+let BackgroundGeolocation = null;
+
+// Synchronous on purpose: a Capacitor plugin is a proxy that answers "then", so it
+// must never be returned from an async function or awaited.
+function plugin() {
+	if (!BackgroundGeolocation) BackgroundGeolocation = registerPlugin("BackgroundGeolocation");
+	return BackgroundGeolocation;
+}
+
+async function syncNativeWatcher() {
+	const needed = thresholds().enabled && activeVisits().length > 0;
+	if (needed && nativeWatcher === null) {
+		nativeWatcher = (async () => {
+			const geo = plugin();
+			return geo.addWatcher(
+				{
+					// With these, Android keeps following the position as a foreground
+					// service while the app is closed, and shows this notification.
+					backgroundTitle: t("C-Water: you are on a visit"),
+					backgroundMessage: t("Checking that you are still on site, to check you out when you leave."),
+					requestPermissions: true,
+					stale: false,
+					distanceFilter: 25,
+				},
+				(location, error) => {
+					if (error) {
+						presence.error =
+							error.code === "NOT_AUTHORIZED"
+								? t("Location is off for this app, so it cannot tell when you leave the site.")
+								: t("Waiting for a location fix.");
+						return;
+					}
+					if (!location) return;
+					presence.error = "";
+					evaluate({
+						latitude: location.latitude,
+						longitude: location.longitude,
+						accuracy: Number.isFinite(location.accuracy) ? Math.round(location.accuracy) : null,
+					});
+				}
+			);
+		})();
+		try {
+			nativeWatcher = await nativeWatcher;
+			presence.watching = true;
+		} catch {
+			nativeWatcher = null;
+		}
+	} else if (!needed && nativeWatcher !== null && typeof nativeWatcher === "string") {
+		const id = nativeWatcher;
+		nativeWatcher = null;
+		presence.watching = false;
+		try {
+			await plugin().removeWatcher({ id });
+		} catch {
+			// already stopped
+		}
+	}
+}
+
 /** Start or stop following the phone's position as visits are checked in and out. */
 export function syncWatcher() {
+	if (isNative()) {
+		syncNativeWatcher();
+		return;
+	}
 	const needed =
 		thresholds().enabled && activeVisits().length > 0 && document.visibilityState === "visible" && "geolocation" in navigator;
 	if (needed && watchId === null) {
@@ -234,6 +328,8 @@ export function syncWatcher() {
 
 /** Coming back to the app: one fresh reading settles what happened while it was closed. */
 function catchUp() {
+	// Native too: a fresh reading on opening the app settles a check-out that waited
+	// for a second reading (the background watcher only reports movement).
 	if (!thresholds().enabled || !activeVisits().length || !("geolocation" in navigator)) return;
 	navigator.geolocation.getCurrentPosition(
 		({ coords }) =>

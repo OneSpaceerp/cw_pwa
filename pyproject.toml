@@ -12,6 +12,8 @@ dynamic = ["version"]
 dependencies = [
     # Web Push (VAPID) straight to the browser push services.
     "pywebpush>=2.0.0",
+    # Native app notifications: Firebase Cloud Messaging HTTP v1 with a service account.
+    "google-auth>=2.29.0",
 ]
 
 [build-system]

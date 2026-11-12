@@ -4,6 +4,7 @@ import { reactive } from "vue";
 import { BOOT_METHOD, call, onSessionLost, post, setCsrfToken } from "@/lib/api";
 import * as db from "@/lib/db";
 import { initLanguage } from "@/lib/i18n";
+import { deviceInfo, deviceToken, initNative, isNative, setDeviceToken } from "@/lib/native";
 import { configurePush, subscribeToPush, unsubscribeFromPush } from "@/lib/permissions";
 import { purgeDeviceCaches } from "@/lib/pwa";
 
@@ -28,11 +29,20 @@ window.addEventListener("offline", () => (session.online = false));
 onSessionLost(() => {
 	if (!session.boot) return;
 	session.boot = null;
+	// The phone was signed out (by an administrator, or the user was disabled).
+	if (isNative()) setDeviceToken("");
 	// Keep local visit data and the outbox: the same engineer signing back in continues.
 	window.dispatchEvent(new CustomEvent("cw:signed-out"));
 });
 
 export async function initSession() {
+	await initNative();
+	if (isNative() && !deviceToken()) {
+		// Never signed in on this phone: straight to the sign-in screen.
+		session.boot = null;
+		session.ready = true;
+		return;
+	}
 	try {
 		await applyBoot(await call(BOOT_METHOD));
 	} catch (error) {
@@ -71,6 +81,14 @@ async function applyBoot(boot) {
 }
 
 export async function login(username, password) {
+	if (isNative()) {
+		// The phone gets its own sign-in token (cw_pwa.native.login).
+		const result = await post("cw_pwa.native.login", { usr: username, pwd: password, ...deviceInfo() });
+		await setDeviceToken(result.token);
+		await applyBoot(await call(BOOT_METHOD));
+		session.ready = true;
+		return;
+	}
 	await post("login", { usr: username, pwd: password });
 	// Logging in starts a new server session with a new CSRF token.
 	await applyBoot(await call(BOOT_METHOD));
@@ -82,10 +100,11 @@ export async function logout() {
 	// While still signed in: stop alerts for this person reaching this phone.
 	await unsubscribeFromPush();
 	try {
-		await post("logout");
+		await post(isNative() ? "cw_pwa.native.logout" : "logout");
 	} catch {
 		// Offline or already signed out: still clear the device.
 	}
+	if (isNative()) await setDeviceToken("");
 	await db.clearAll();
 	await purgeDeviceCaches();
 	session.boot = null;

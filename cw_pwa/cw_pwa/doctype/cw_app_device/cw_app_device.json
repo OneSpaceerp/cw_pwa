@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-11-13 20:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "device_name",
+  "platform",
+  "app_version",
+  "col_status",
+  "enabled",
+  "last_seen",
+  "signed_in_on",
+  "section_push",
+  "push_token",
+  "token_hash"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "device_name",
+   "fieldtype": "Data",
+   "label": "Device",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Select",
+   "label": "Platform",
+   "options": "\nAndroid\niOS",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "app_version",
+   "fieldtype": "Data",
+   "label": "App Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_status",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Signed In",
+   "default": "1",
+   "in_list_view": 1,
+   "description": "Untick to sign this phone out. The engineer must sign in again on it."
+  },
+  {
+   "fieldname": "last_seen",
+   "fieldtype": "Datetime",
+   "label": "Last Seen",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "signed_in_on",
+   "fieldtype": "Datetime",
+   "label": "Signed In On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_push",
+   "fieldtype": "Section Break",
+   "label": "Notifications"
+  },
+  {
+   "fieldname": "push_token",
+   "fieldtype": "Small Text",
+   "label": "Push Token",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Firebase Cloud Messaging token of this phone, set by the app."
+  },
+  {
+   "fieldname": "token_hash",
+   "fieldtype": "Data",
+   "label": "Token Hash",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "unique": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-11-13 20:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "CW PWA",
+ "name": "CW App Device",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "sort_field": "last_seen",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "device_name",
+ "track_changes": 1,
+ "in_create": 1,
+ "description": "Phones signed in to the native C-Water app. Each holds a sign-in token (only its hash is stored)."
+}

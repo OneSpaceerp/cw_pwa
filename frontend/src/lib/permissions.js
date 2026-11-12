@@ -8,6 +8,7 @@
 import { reactive } from "vue";
 
 import { post } from "./api";
+import { isNative } from "./native";
 import { isStandalone, pwa } from "./pwa";
 
 const ASKED_KEY = "cw:permissions-asked";
@@ -42,6 +43,19 @@ export async function refreshPermissions() {
 	permissions.camera = navigator.mediaDevices?.getUserMedia
 		? (await query("camera")) || permissions.camera
 		: "unsupported";
+
+	if (isNative()) {
+		// Native notifications (local reminders, and Firebase push once it is set up).
+		permissions.notificationsNeedInstall = false;
+		try {
+			const { LocalNotifications } = await import("@capacitor/local-notifications");
+			const state = (await LocalNotifications.checkPermissions()).display;
+			permissions.notifications = state === "prompt-with-rationale" ? "prompt" : state;
+		} catch {
+			permissions.notifications = "unsupported";
+		}
+		return;
+	}
 
 	const pushSupported = "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
 	// On iPhone, web notifications exist only for an app added to the Home Screen.
@@ -92,6 +106,17 @@ export async function requestCamera() {
 }
 
 export async function requestNotifications() {
+	if (isNative()) {
+		try {
+			const { LocalNotifications } = await import("@capacitor/local-notifications");
+			const state = (await LocalNotifications.requestPermissions()).display;
+			permissions.notifications = state === "prompt-with-rationale" ? "prompt" : state;
+			if (state === "granted") await subscribeToPush();
+		} catch {
+			permissions.notifications = "unsupported";
+		}
+		return permissions.notifications;
+	}
 	await refreshPermissions();
 	if (permissions.notifications === "unsupported" || permissions.notificationsNeedInstall) {
 		return permissions.notifications;
@@ -113,6 +138,7 @@ function keyToBytes(base64url) {
  * also re-links the phone when a different engineer signs in.
  */
 export async function subscribeToPush() {
+	if (isNative()) return registerNativePush();
 	if (!pushPublicKey || !("PushManager" in window) || Notification.permission !== "granted") return false;
 	try {
 		const registration = await navigator.serviceWorker.ready;
@@ -131,8 +157,39 @@ export async function subscribeToPush() {
 	}
 }
 
+let nativePushListening = false;
+
+/**
+ * The native app is notified through Firebase Cloud Messaging. Only in a build made
+ * with Firebase set up (CW_NATIVE_PUSH=1 and google-services.json): registering
+ * without it crashes the Android app.
+ */
+async function registerNativePush() {
+	if (!__NATIVE_PUSH__) return false;
+	try {
+		const { PushNotifications } = await import("@capacitor/push-notifications");
+		if ((await PushNotifications.checkPermissions()).receive !== "granted") return false;
+		if (!nativePushListening) {
+			nativePushListening = true;
+			await PushNotifications.addListener("registration", ({ value }) => {
+				post("cw_pwa.native.register_push_token", { token: value }).catch(() => {});
+			});
+			await PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
+				window.dispatchEvent(new CustomEvent("cw:open-url", { detail: notification?.data?.url }));
+			});
+		}
+		await PushNotifications.register();
+		return true;
+	} catch (error) {
+		console.warn("Native push registration failed", error);
+		return false;
+	}
+}
+
 /** Called on sign-out so the next person on this phone does not get these alerts. */
 export async function unsubscribeFromPush() {
+	// Native: signing out removes the phone's push token on the server.
+	if (isNative()) return;
 	try {
 		const registration = await navigator.serviceWorker?.getRegistration();
 		const subscription = await registration?.pushManager?.getSubscription();

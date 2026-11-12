@@ -32,6 +32,10 @@ website_route_rules = [
 
 page_renderer = ["cw_pwa.renderers.ServiceWorkerPage"]
 
+# The native app (iOS / Android) signs requests with a device token instead of a
+# session cookie (see cw_pwa/native.py).
+auth_hooks = ["cw_pwa.native.authenticate_device"]
+
 # Every alert about a visit or a service request is also pushed to the user's phones.
 doc_events = {
 	"Notification Log": {"after_insert": "cw_pwa.push.on_notification_log"},

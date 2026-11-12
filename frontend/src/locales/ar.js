@@ -590,4 +590,9 @@ export default {
 	"You left the site. The visit was checked out at {time} and sent for review.": "غادرت الموقع. تم تسجيل خروجك الساعة {time} وإرسال الزيارة للمراجعة.",
 	"Leaving the site checks you out and sends the visit for review as it is. Finish the report before you leave, and keep the app open on site.": "عند مغادرة الموقع يتم تسجيل خروجك وإرسال الزيارة للمراجعة كما هي. أكمل التقرير قبل المغادرة، واترك التطبيق مفتوحاً في الموقع.",
 	"Check out and submit": "تسجيل الخروج والإرسال",
+	"C-Water: you are on a visit": "سي ووتر: أنت في زيارة",
+	"Checking that you are still on site, to check you out when you leave.": "يتحقق من وجودك في الموقع لتسجيل خروجك عند المغادرة.",
+	// platform names, sent to the server as they are
+	Android: "Android",
+	iOS: "iOS",
 };
