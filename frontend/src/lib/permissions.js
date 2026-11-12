@@ -158,6 +158,7 @@ export async function subscribeToPush() {
 }
 
 let nativePushListening = false;
+let registrationTimer = null;
 
 /** Tell the server what happened, shown on the phone's CW App Device (Push Status). */
 function reportPush(status) {
@@ -177,28 +178,36 @@ async function registerNativePush() {
 	}
 	try {
 		const { PushNotifications } = await import("@capacitor/push-notifications");
-		let state = (await PushNotifications.checkPermissions()).receive;
-		if (state === "prompt" || state === "prompt-with-rationale") {
-			state = (await PushNotifications.requestPermissions()).receive;
-		}
+		// Only check here, never ask: the permissions sheet asks. Two permission requests
+		// at once (this and the sheet's, right after sign-in) leave one unanswered for
+		// good on some phones, and registration then never happened.
+		const state = (await PushNotifications.checkPermissions()).receive;
 		if (state !== "granted") {
-			reportPush(`Notifications not allowed on the phone (${state}).`);
+			reportPush(`Notifications not allowed on the phone yet (${state}).`);
 			return false;
 		}
 		if (!nativePushListening) {
 			nativePushListening = true;
 			await PushNotifications.addListener("registration", ({ value }) => {
+				clearTimeout(registrationTimer);
 				post("cw_pwa.native.register_push_token", { token: value }).catch((error) =>
 					reportPush(`Token not saved: ${error?.message || error}`)
 				);
 			});
 			await PushNotifications.addListener("registrationError", (error) => {
+				clearTimeout(registrationTimer);
 				reportPush(`Firebase registration failed: ${error?.error || JSON.stringify(error)}`);
 			});
 			await PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
 				window.dispatchEvent(new CustomEvent("cw:open-url", { detail: notification?.data?.url }));
 			});
 		}
+		reportPush("Registering with Firebase...");
+		clearTimeout(registrationTimer);
+		registrationTimer = setTimeout(
+			() => reportPush("No answer from Firebase after 30 s (Google Play services, network or a battery saver)."),
+			30000
+		);
 		await PushNotifications.register();
 		return true;
 	} catch (error) {
