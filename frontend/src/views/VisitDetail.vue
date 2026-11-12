@@ -11,7 +11,7 @@ import Pill from "@/components/Pill.vue";
 import StartSheet from "@/components/StartSheet.vue";
 import SyncChip from "@/components/SyncChip.vue";
 import { call } from "@/lib/api";
-import { directionsUrl, getPosition, vibrate } from "@/lib/device";
+import { directionsUrl, vibrate } from "@/lib/device";
 import { t } from "@/lib/i18n";
 import { dateTimeLabel, dayLabel, distanceLabel, durationLabel, GEOFENCE_TONE, PRIORITY_TONE, STATUS, timeLabel } from "@/lib/format";
 import { hasCoordinates } from "@/lib/rules";
@@ -19,7 +19,7 @@ import { isLocalId } from "@/stores/outbox";
 import { presence } from "@/stores/presence";
 import { session, settings } from "@/stores/session";
 import { toast, toastError } from "@/stores/ui";
-import { checkOutVisit, clearServerError, hasUnsynced, openVisit, refreshVisit, startVisit, visits } from "@/stores/visits";
+import { clearServerError, hasUnsynced, openVisit, refreshVisit, startVisit, visits } from "@/stores/visits";
 
 const props = defineProps({ name: { type: String, required: true } });
 const router = useRouter();
@@ -71,25 +71,9 @@ const checkinPoint = computed(() =>
 	data.value?.checkin_latitude ? { latitude: data.value.checkin_latitude, longitude: data.value.checkin_longitude } : null
 );
 const PRESENCE_TONE = { "on-site": "tone-ok", away: "tone-warn", left: "tone-bad" };
-const checkingOut = ref(false);
-
-async function checkOutNow() {
-	checkingOut.value = true;
-	let position = null;
-	try {
-		position = await getPosition({ timeout: 10000 });
-	} catch {
-		position = null;
-	}
-	try {
-		await checkOutVisit(props.name, { position, source: "Engineer" });
-		vibrate(15);
-		toast(t("Checked out. You can finish the report and submit it later."), "ok");
-	} catch (error) {
-		toastError(error, "The check-out could not be saved.");
-	} finally {
-		checkingOut.value = false;
-	}
+// Checking out by hand is submitting: the submit step records the check-out too.
+function checkOutNow() {
+	router.push({ name: "visit-run", params: { name: props.name, step: "review" } });
 }
 
 // Send the customer their feedback link: the phone's share sheet (WhatsApp, SMS, ...)
@@ -235,10 +219,10 @@ onMounted(async () => {
 						<p v-else-if="presence.error" class="text-sm text-ink-2">{{ presence.error }}</p>
 						<p v-else class="text-sm text-ink-2">{{ t("Checking your location...") }}</p>
 						<p class="text-sm text-ink-3">
-							{{ t("Leaving the site checks you out automatically, at the time you left. Keep the app open on site so it can tell.") }}
+							{{ t("Leaving the site checks you out and sends the visit for review as it is. Finish the report before you leave, and keep the app open on site.") }}
 						</p>
-						<button type="button" class="btn-outline btn-block" :disabled="checkingOut" @click="checkOutNow">
-							<LogOut :size="18" aria-hidden="true" /> Check out now
+						<button type="button" class="btn-outline btn-block" @click="checkOutNow">
+							<LogOut :size="18" aria-hidden="true" /> Check out and submit
 						</button>
 					</section>
 

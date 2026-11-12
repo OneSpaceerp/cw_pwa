@@ -300,13 +300,20 @@ export async function startVisit(name, { position = null, reason = "" } = {}) {
 }
 
 /**
- * Check out of the site without handing the visit in: by the engineer ("Engineer"),
- * or by the app when they moved away ("Auto - Left Site"). An automatic check-out
- * carries the last time they were seen on site, which becomes the check-out time.
+ * Check out and hand the visit in for review: by the app when the engineer moved away
+ * ("Auto - Left Site"), or by hand. The visit goes to the supervisor as it is; what the
+ * report still lacks is listed for them. An automatic check-out carries the last time
+ * the engineer was seen on site, which becomes the check-out time.
  */
 export async function checkOutVisit(name, { position = null, source = "Engineer", leftSiteAt = null, distance = null } = {}) {
 	const record = visits.records[name];
 	if (!record || record.data.checkout_time) return false;
+	clearTimeout(saveTimers.get(name));
+	saveTimers.delete(name);
+	// The check-out carries the full data, so a queued draft save would be redundant.
+	for (const op of opsFor(name)) {
+		if (op.action === "save_draft" && op.status === "pending") await removeOp(op.id);
+	}
 	const previous = pick(db.plain(record.data), SERVER_FIELDS);
 	const stamp = source === "Auto - Left Site" && leftSiteAt ? leftSiteAt : localTimestamp();
 	record.data.checkout_time = stamp;
@@ -316,6 +323,11 @@ export async function checkOutVisit(name, { position = null, source = "Engineer"
 		const minutes = (Date.parse(stamp.replace(" ", "T")) - Date.parse(String(record.data.checkin_time).replace(" ", "T"))) / 60000;
 		if (Number.isFinite(minutes) && minutes >= 0) record.data.visit_duration_minutes = Math.round(minutes * 10) / 10;
 	}
+	const data = draftPayload(record.data);
+	record.data.visit_status = "Pending Review";
+	record.data.submitted_for_review_on = stamp;
+	record.data.can_edit = false;
+	record.dirty = false;
 	await persist(record);
 	await enqueue({
 		action: "checkout_visit",
@@ -326,6 +338,7 @@ export async function checkOutVisit(name, { position = null, source = "Engineer"
 			source,
 			left_site_at: leftSiteAt,
 			distance: distance == null ? null : Math.round(distance),
+			data,
 		},
 		meta: { previous },
 	});

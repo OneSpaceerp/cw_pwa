@@ -152,7 +152,7 @@ export async function evaluate(position, { resumed = false } = {}) {
 				vibrate([20, 80, 20]);
 				notify(
 					t("Checked out of {customer}", { customer: data.customer_name || data.customer }),
-					t("You left the site. The visit ended at {time}; you can still finish the report.", {
+					t("You left the site. The visit was checked out at {time} and sent for review.", {
 						time: String(lastSeen).slice(11, 16),
 					}),
 					data.name

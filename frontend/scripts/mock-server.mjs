@@ -411,6 +411,15 @@ const api = {
 				if (args.left_site_at) visit.last_on_site_time = args.left_site_at;
 				const minutes = (Date.parse(visit.checkout_time.replace(" ", "T")) - Date.parse(String(visit.checkin_time).replace(" ", "T"))) / 60000;
 				if (minutes >= 0) visit.visit_duration_minutes = Math.round(minutes * 10) / 10;
+				// A check-out hands the visit in, complete or not.
+				if (args.data) applyData(visit, typeof args.data === "string" ? JSON.parse(args.data) : args.data);
+				const missing = blockers(visit);
+				Object.assign(visit, {
+					visit_status: "Pending Review",
+					submitted_for_review_on: now(),
+					auto_submitted: 1,
+					auto_submit_issues: missing.join("\n") || null,
+				});
 			}
 			return { visit: visit.name, data: payload(visit) };
 		}),

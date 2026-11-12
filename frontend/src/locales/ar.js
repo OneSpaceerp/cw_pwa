@@ -587,4 +587,7 @@ export default {
 	"{count} of your visits are started but not submitted. A visit counts only after you submit it for review: open it, finish it and submit.": "{count} من زياراتك بدأت ولم تُرسل. لا تُحتسب الزيارة إلا بعد إرسالها للمراجعة: افتحها وأكملها ثم أرسلها.",
 	"Nothing counts toward this month yet. Visits you submit, requests assigned to you, customer ratings and your manager's monthly review fill in your score.": "لا يوجد ما يُحتسب لهذا الشهر بعد. الزيارات التي ترسلها، والطلبات المسندة إليك، وتقييمات العملاء، والمراجعة الشهرية لمديرك هي ما يكوّن تقييمك.",
 	"Open my visits": "افتح زياراتي",
+	"You left the site. The visit was checked out at {time} and sent for review.": "غادرت الموقع. تم تسجيل خروجك الساعة {time} وإرسال الزيارة للمراجعة.",
+	"Leaving the site checks you out and sends the visit for review as it is. Finish the report before you leave, and keep the app open on site.": "عند مغادرة الموقع يتم تسجيل خروجك وإرسال الزيارة للمراجعة كما هي. أكمل التقرير قبل المغادرة، واترك التطبيق مفتوحاً في الموقع.",
+	"Check out and submit": "تسجيل الخروج والإرسال",
 };
