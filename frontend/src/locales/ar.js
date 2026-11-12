@@ -584,4 +584,7 @@ export default {
 	"{count} visit(s) this month have no customer rating yet. Send those customers the feedback link.": "{count} زيارة هذا الشهر بدون تقييم من العميل بعد. أرسل رابط التقييم لهؤلاء العملاء.",
 	"{count} item(s) are rated by your manager in the monthly review.": "{count} بند يقيّمها مديرك في المراجعة الشهرية.",
 	"You are on track this month. Keep it up.": "أنت على المسار هذا الشهر. استمر.",
+	"{count} of your visits are started but not submitted. A visit counts only after you submit it for review: open it, finish it and submit.": "{count} من زياراتك بدأت ولم تُرسل. لا تُحتسب الزيارة إلا بعد إرسالها للمراجعة: افتحها وأكملها ثم أرسلها.",
+	"Nothing counts toward this month yet. Visits you submit, requests assigned to you, customer ratings and your manager's monthly review fill in your score.": "لا يوجد ما يُحتسب لهذا الشهر بعد. الزيارات التي ترسلها، والطلبات المسندة إليك، وتقييمات العملاء، والمراجعة الشهرية لمديرك هي ما يكوّن تقييمك.",
+	"Open my visits": "افتح زياراتي",
 };

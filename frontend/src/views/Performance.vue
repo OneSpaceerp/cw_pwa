@@ -68,6 +68,8 @@ const TEXTS = {
 	ask_feedback: "{count} visit(s) this month have no customer rating yet. Send those customers the feedback link.",
 	awaiting_review: "{count} item(s) are rated by your manager in the monthly review.",
 	keep_going: "You are on track this month. Keep it up.",
+	submit_open_visits: "{count} of your visits are started but not submitted. A visit counts only after you submit it for review: open it, finish it and submit.",
+	nothing_measured: "Nothing counts toward this month yet. Visits you submit, requests assigned to you, customer ratings and your manager's monthly review fill in your score.",
 };
 function advice(item) {
 	const p = item.params || {};
@@ -180,6 +182,11 @@ onMounted(async () => {
 								>{{ index + 1 }}</span>
 								<div class="min-w-0 flex-1">
 									<p class="text-ink">{{ advice(item) }}</p>
+									<RouterLink
+										v-if="item.kind === 'submit_open_visits'"
+										:to="{ name: 'visits', query: { filter: 'open' } }"
+										class="mt-1 inline-flex min-h-[44px] items-center text-sm font-bold text-brand-strong"
+									>{{ t("Open my visits") }}</RouterLink>
 									<p v-if="item.impact > 0" class="mt-1 text-xs font-bold text-brand-strong">
 										{{ t("Up to +{points} points on your total", { points: num(item.impact) }) }}
 									</p>
