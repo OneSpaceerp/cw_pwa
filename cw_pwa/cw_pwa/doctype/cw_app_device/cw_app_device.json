@@ -14,6 +14,7 @@
   "last_seen",
   "signed_in_on",
   "section_push",
+  "push_status",
   "push_token",
   "token_hash"
  ],
@@ -82,6 +83,14 @@
    "label": "Notifications"
   },
   {
+   "fieldname": "push_status",
+   "fieldtype": "Small Text",
+   "label": "Push Status",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "What the app last reported about notifications on this phone: registered, not allowed, or the error."
+  },
+  {
    "fieldname": "push_token",
    "fieldtype": "Small Text",
    "label": "Push Token",
@@ -100,7 +109,7 @@
   }
  ],
  "links": [],
- "modified": "2026-11-13 20:00:00.000000",
+ "modified": "2026-11-13 22:00:00.000000",
  "modified_by": "Administrator",
  "module": "CW PWA",
  "name": "CW App Device",

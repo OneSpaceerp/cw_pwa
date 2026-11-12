@@ -136,5 +136,16 @@ def register_push_token(token: str) -> dict:
 	# A token moves with the phone, not the user: drop it from any other device row.
 	for other in frappe.get_all(DEVICE, filters={"push_token": token, "name": ["!=", device]}, pluck="name"):
 		frappe.db.set_value(DEVICE, other, "push_token", None, update_modified=False)
-	frappe.db.set_value(DEVICE, device, "push_token", token, update_modified=False)
+	frappe.db.set_value(
+		DEVICE, device, {"push_token": token, "push_status": _("Registered")}, update_modified=False
+	)
+	return {"ok": True}
+
+
+@frappe.whitelist(methods=["POST"])
+def report_push_status(status: str) -> dict:
+	"""What the app knows about notifications on this phone, for administrators to see."""
+	device = current_device()
+	if device:
+		frappe.db.set_value(DEVICE, device, "push_status", (status or "").strip()[:500], update_modified=False)
 	return {"ok": True}

@@ -58,8 +58,14 @@ export function serverFileUrl(path) {
 
 /** Name and platform sent at sign-in, shown to administrators on CW App Device. */
 export function deviceInfo() {
+	// "Linux; Android 14; SM-A546E Build/UP1A.231005.007; wv" -> "SM-A546E (Android 14)"
 	const ua = navigator.userAgent || "";
-	const model = ua.match(/\(([^)]+)\)/)?.[1]?.split(";").map((part) => part.trim()).filter(Boolean).pop() || "";
+	const parts = ua.match(/\(([^)]+)\)/)?.[1]?.split(";").map((part) => part.trim()) || [];
+	const android = parts.find((part) => /^Android /.test(part)) || "";
+	const build = parts.find((part) => / Build\//.test(part));
+	const iphone = parts.find((part) => /^(iPhone|iPad)/.test(part));
+	const name = build ? build.replace(/ Build\/.*$/, "") : iphone || "";
+	const model = [name, android && `(${android})`].filter(Boolean).join(" ");
 	return {
 		platform: platform() === "ios" ? "iOS" : platform() === "android" ? "Android" : "",
 		device_name: model.slice(0, 140),

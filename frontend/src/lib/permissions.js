@@ -159,20 +159,41 @@ export async function subscribeToPush() {
 
 let nativePushListening = false;
 
+/** Tell the server what happened, shown on the phone's CW App Device (Push Status). */
+function reportPush(status) {
+	post("cw_pwa.native.report_push_status", { status }).catch(() => {});
+}
+
 /**
  * The native app is notified through Firebase Cloud Messaging. Only in a build made
- * with Firebase set up (CW_NATIVE_PUSH=1 and google-services.json): registering
- * without it crashes the Android app.
+ * with Firebase set up (google-services.json): registering without it crashes the
+ * Android app. Every outcome is reported, so a phone that gets no notifications
+ * says why.
  */
 async function registerNativePush() {
-	if (!__NATIVE_PUSH__) return false;
+	if (!__NATIVE_PUSH__) {
+		reportPush("This app build has no Firebase configuration (google-services.json).");
+		return false;
+	}
 	try {
 		const { PushNotifications } = await import("@capacitor/push-notifications");
-		if ((await PushNotifications.checkPermissions()).receive !== "granted") return false;
+		let state = (await PushNotifications.checkPermissions()).receive;
+		if (state === "prompt" || state === "prompt-with-rationale") {
+			state = (await PushNotifications.requestPermissions()).receive;
+		}
+		if (state !== "granted") {
+			reportPush(`Notifications not allowed on the phone (${state}).`);
+			return false;
+		}
 		if (!nativePushListening) {
 			nativePushListening = true;
 			await PushNotifications.addListener("registration", ({ value }) => {
-				post("cw_pwa.native.register_push_token", { token: value }).catch(() => {});
+				post("cw_pwa.native.register_push_token", { token: value }).catch((error) =>
+					reportPush(`Token not saved: ${error?.message || error}`)
+				);
+			});
+			await PushNotifications.addListener("registrationError", (error) => {
+				reportPush(`Firebase registration failed: ${error?.error || JSON.stringify(error)}`);
 			});
 			await PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
 				window.dispatchEvent(new CustomEvent("cw:open-url", { detail: notification?.data?.url }));
@@ -181,7 +202,7 @@ async function registerNativePush() {
 		await PushNotifications.register();
 		return true;
 	} catch (error) {
-		console.warn("Native push registration failed", error);
+		reportPush(`Push set-up failed: ${error?.message || error}`);
 		return false;
 	}
 }

@@ -21,6 +21,12 @@ export async function initNativeShell(router) {
 	]);
 
 	// A browser-style back: the router guard closes an open sheet first, as on the web.
+	// Back in the app: register for notifications again, in case they were allowed
+	// in the phone's settings meanwhile.
+	App.addListener("resume", () => {
+		import("./permissions").then(({ subscribeToPush }) => subscribeToPush()).catch(() => {});
+	});
+
 	App.addListener("backButton", ({ canGoBack }) => {
 		if (canGoBack || window.history.state?.back) window.history.back();
 		else App.minimizeApp();
