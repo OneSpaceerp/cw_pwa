@@ -5,6 +5,7 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { initLanguage, t } from "./lib/i18n";
 import { initPwa } from "./lib/pwa";
+import { followStatusBar } from "./lib/statusbar";
 import router from "./router";
 import { canUseApp, initSession, session } from "./stores/session";
 import { loadAlerts } from "./stores/alerts";
@@ -52,12 +53,18 @@ function refresh() {
  */
 async function hideSplash() {
 	const splash = document.getElementById("boot-splash");
-	if (!splash) return;
+	if (!splash) {
+		followStatusBar();
+		return;
+	}
 	const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 	const wait = reduced ? 0 : Math.max(0, SPLASH_MIN_MS - (performance.now() - started));
 	await new Promise((resolve) => setTimeout(resolve, wait));
 	splash.classList.add("is-leaving");
-	setTimeout(() => splash.remove(), 450);
+	setTimeout(() => {
+		splash.remove();
+		followStatusBar(); // the status bar now takes the top bar's colour
+	}, 450);
 }
 
 /**

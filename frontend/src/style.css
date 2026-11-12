@@ -88,6 +88,12 @@
 		overflow: hidden;
 	}
 
+	/* What iOS shows behind the status bar is the root's colour: the top bar's, so no
+	   grey band sits between the clock and the header. */
+	html {
+		background: var(--surface);
+	}
+
 	body {
 		background: var(--bg);
 		color: var(--ink);
