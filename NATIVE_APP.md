@@ -53,7 +53,7 @@ Native notifications need a Firebase project (free):
 3. **Project settings > Service accounts > Generate new private key**. Copy the file to the
    server (not into git) and point the site at it:
    `bench --site <site> set-config cw_pwa_fcm_credentials /home/<user>/firebase-key.json`
-4. Build with push on: `CW_NATIVE_PUSH=1 npm run native:sync`, then `./gradlew assembleDebug`.
+4. Build as usual: `npm run native:sync` turns push on by itself when `google-services.json` is present (`CW_NATIVE_PUSH=0` turns it off). The file is kept out of git: keep a copy with the project files.
 5. iPhone: add an iOS app in the same project and upload the APNs key (Apple Developer
    account > Keys) under **Cloud Messaging**.
 
